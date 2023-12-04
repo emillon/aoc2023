@@ -12,6 +12,16 @@ let sample =
 
 type subset = { red : int; green : int; blue : int } [@@deriving sexp]
 
+let subset_max t { red; green; blue } =
+  {
+    red = Int.max red t.red;
+    green = Int.max green t.green;
+    blue = Int.max blue t.blue;
+  }
+
+let power { red; green; blue } = red * green * blue
+let fold1 ~f = function [] -> assert false | h :: t -> List.fold ~init:h ~f t
+
 let subset_is_correct { red; green; blue } =
   red <= 12 && green <= 13 && blue <= 14
 
@@ -103,12 +113,19 @@ let%expect_test "result" =
   parse sample |> result |> printf "%d\n";
   [%expect {| 8 |}]
 
-let result2 _ = 0
+let result2 lines =
+  List.map lines ~f:(fun { id = _; subsets } ->
+      fold1 subsets ~f:subset_max |> power)
+  |> sum
+
+let%expect_test "result2" =
+  parse sample |> result2 |> printf "%d\n";
+  [%expect {| 2286 |}]
 
 let run () =
   match Sys.get_argv () with
   | [| _; path |] ->
       In_channel.read_lines path |> parse |> result |> printf "%d\n"
   | [| _; "--2"; path |] ->
-      In_channel.read_lines path |> result2 |> printf "%d\n"
+      In_channel.read_lines path |> parse |> result2 |> printf "%d\n"
   | _ -> assert false
