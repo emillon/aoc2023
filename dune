@@ -2,7 +2,7 @@
  (name day01)
  (public_name aoc2023.day01)
  (modules day01)
- (libraries base stdio)
+ (libraries base stdio re str)
  (preprocess
   (pps ppx_jane))
  (inline_tests))
@@ -24,3 +24,13 @@
  (alias runtest)
  (action
   (diff part1.txt part1.txt.gen)))
+
+(rule
+ (with-stdout-to
+  part2.txt.gen
+  (run ./run.exe --2 %{dep:input.txt})))
+
+(rule
+ (alias runtest)
+ (action
+  (diff part2.txt part2.txt.gen)))
