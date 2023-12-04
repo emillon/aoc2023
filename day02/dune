@@ -1,0 +1,36 @@
+(library
+ (name day02)
+ (public_name aoc2023.day02)
+ (modules day02)
+ (libraries base stdio angstrom)
+ (preprocess
+  (pps ppx_jane))
+ (inline_tests))
+
+(executable
+ (name run)
+ (modules run)
+ (libraries day02))
+
+(rule
+ (write-file run.ml "let () = Day02.run ()"))
+
+(rule
+ (with-stdout-to
+  part1.txt.gen
+  (run ./run.exe %{dep:input.txt})))
+
+(rule
+ (alias runtest)
+ (action
+  (diff part1.txt part1.txt.gen)))
+
+(rule
+ (with-stdout-to
+  part2.txt.gen
+  (run ./run.exe --2 %{dep:input.txt})))
+
+(rule
+ (alias runtest)
+ (action
+  (diff part2.txt part2.txt.gen)))
