@@ -28,42 +28,40 @@ let subset_from_components components =
 let parse_line s =
   let number =
     let open Angstrom in
-    (let* s = take_while1 Char.is_digit in
-     return (Int.of_string s))
+    (let+ s = take_while1 Char.is_digit in
+     Int.of_string s)
     <?> "number"
   in
   let id = number in
+  let color =
+    let open Angstrom in
+    choice
+      [
+        (let+ _ = string "red" in
+         `Red);
+        (let+ _ = string "green" in
+         `Green);
+        (let+ _ = string "blue" in
+         `Blue);
+      ]
+  in
   let component =
     let open Angstrom in
-    (let* amount = number in
-     let* _ = string " " in
-     let* color =
-       choice
-         [
-           (let+ _ = string "red" in
-            `Red);
-           (let+ _ = string "green" in
-            `Green);
-           (let+ _ = string "blue" in
-            `Blue);
-         ]
-     in
-     return (color, amount))
+    (let+ amount = number <* string " " and+ color in
+     (color, amount))
     <?> "component"
   in
   let subset =
     let open Angstrom in
-    (let* components = sep_by (string ", ") component in
-     return (subset_from_components components))
+    (let+ components = sep_by (string ", ") component in
+     subset_from_components components)
     <?> "subset"
   in
   let line =
     let open Angstrom in
-    (let* _ = string "Game " in
-     let* id = id in
-     let* _ = string ": " in
-     let* subsets = sep_by (string "; ") subset in
-     return { id; subsets })
+    (let+ id = string "Game " *> id <* string ": "
+     and+ subsets = sep_by (string "; ") subset in
+     { id; subsets })
     <?> "line"
   in
   Angstrom.parse_string ~consume:All line s |> Result.ok_or_failwith
@@ -101,8 +99,10 @@ let result lines =
       if List.for_all subsets ~f:subset_is_correct then Some id else None)
   |> sum
 
-let%expect_test "result" = parse sample |> result |> printf "%d\n";
+let%expect_test "result" =
+  parse sample |> result |> printf "%d\n";
   [%expect {| 8 |}]
+
 let result2 _ = 0
 
 let run () =
