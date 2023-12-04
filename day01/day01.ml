@@ -46,23 +46,6 @@ let sample2 =
     "7pqrstsixteen";
   ]
 
-let part2_re =
-  let open Re in
-  compile
-    (alt
-       [
-         digit;
-         str "one";
-         str "two";
-         str "three";
-         str "four";
-         str "five";
-         str "six";
-         str "seven";
-         str "eight";
-         str "nine";
-       ])
-
 let part2_str_re =
   Str.regexp
     "[123456789]\\|one\\|two\\|three\\|four\\|five\\|six\\|seven\\|eight\\|nine"
@@ -80,26 +63,23 @@ let extract_all_digits_2 s =
     | "9" | "nine" -> 9
     | s -> raise_s [%message "extract_all_digits2" (s : string)]
   in
-  if true then Re.matches part2_re s |> List.map ~f:value
-  else
-    Str.full_split part2_str_re s
-    |> List.filter_map ~f:(function
-         | Text _ -> None
-         | Delim d -> Some (value d))
+  let _ = Str.search_forward part2_str_re s 0 in
+  let first = value (Str.matched_string s) in
+  let _ = Str.search_backward part2_str_re s (String.length s - 1) in
+  let last = value (Str.matched_string s) in
+  (first, last)
 
 let%expect_test "extract_all_digits_2" =
   List.map sample2 ~f:(fun s -> (s, extract_all_digits_2 s))
-  |> [%sexp_of: (string * int list) list] |> print_s;
+  |> [%sexp_of: (string * (int * int)) list] |> print_s;
   [%expect
     {|
-    ((two1nine (2 1 9)) (eightwothree (8 3)) (abcone2threexyz (1 2 3))
-     (xtwone3four (2 3 4)) (4nineeightseven2 (4 9 8 7 2)) (zoneight234 (1 2 3 4))
+    ((two1nine (2 9)) (eightwothree (8 3)) (abcone2threexyz (1 3))
+     (xtwone3four (2 4)) (4nineeightseven2 (4 2)) (zoneight234 (1 4))
      (7pqrstsixteen (7 6))) |}]
 
 let result2 l =
-  List.map l ~f:(fun line ->
-      extract_all_digits_2 line |> first_and_last |> make_number)
-  |> sum
+  List.map l ~f:(fun line -> extract_all_digits_2 line |> make_number) |> sum
 
 let%expect_test "result2" =
   result2 sample2 |> printf "%d\n";
