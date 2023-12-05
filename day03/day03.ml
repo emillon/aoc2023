@@ -1,0 +1,129 @@
+open Base
+open Stdio
+
+let sample =
+  [
+    "467..114..";
+    "...*......";
+    "..35..633.";
+    "......#...";
+    "617*......";
+    ".....+.58.";
+    "..592.....";
+    "......755.";
+    "...$.*....";
+    ".664.598..";
+  ]
+
+module Pos = struct
+  type t = int * int [@@deriving sexp]
+end
+
+module Number = struct
+  type t = { value : int; left : Pos.t; right : Pos.t } [@@deriving sexp]
+end
+
+type t = { symbols : Pos.t list; numbers : Number.t list } [@@deriving sexp]
+
+let empty = { symbols = []; numbers = [] }
+
+let union a b =
+  { symbols = a.symbols @ b.symbols; numbers = a.numbers @ b.numbers }
+
+let parse_line i s =
+  let dot =
+    let open Angstrom in
+    char '.' <?> "dot"
+  in
+  let number =
+    let open Angstrom in
+    (let+ s = take_while1 Char.is_digit in
+     Int.of_string s)
+    <?> "number"
+  in
+  let symbol =
+    let open Angstrom in
+    satisfy (function '.' -> false | '0' .. '9' -> false | _ -> true)
+    <?> "symbol"
+  in
+  let element =
+    let open Angstrom in
+    choice
+      [
+        (let* left = pos in
+         let* value = number in
+         let+ right = pos in
+         `Number { Number.left = (i, left); value; right = (i, right - 1) })
+        <?> "element/number";
+        (let* pos in
+         let+ _ = symbol in
+         `Symbol (i, pos))
+        <?> "element/symbol";
+        (let+ _ = many1 dot in
+         `Dots)
+        <?> "element/dots";
+      ]
+    <?> "element"
+  in
+  let line =
+    let open Angstrom in
+    let+ elements = many1 element <?> "elements" in
+    List.fold elements ~init:empty ~f:(fun acc element ->
+        match element with
+        | `Number n -> { acc with numbers = n :: acc.numbers }
+        | `Symbol pos -> { acc with symbols = pos :: acc.symbols }
+        | `Dots -> acc)
+  in
+  Angstrom.parse_string ~consume:All line s |> Result.ok_or_failwith
+
+let parse lines =
+  List.foldi lines ~init:empty ~f:(fun i acc line ->
+      union (parse_line i line) acc)
+
+let%expect_test "parse" =
+  parse sample |> [%sexp_of: t] |> print_s;
+  [%expect
+    {|
+    ((symbols ((8 5) (8 3) (5 5) (4 3) (3 6) (1 3)))
+     (numbers
+      (((value 598) (left (9 5)) (right (9 7)))
+       ((value 664) (left (9 1)) (right (9 3)))
+       ((value 755) (left (7 6)) (right (7 8)))
+       ((value 592) (left (6 2)) (right (6 4)))
+       ((value 58) (left (5 7)) (right (5 8)))
+       ((value 617) (left (4 0)) (right (4 2)))
+       ((value 633) (left (2 6)) (right (2 8)))
+       ((value 35) (left (2 2)) (right (2 3)))
+       ((value 114) (left (0 5)) (right (0 7)))
+       ((value 467) (left (0 0)) (right (0 2)))))) |}]
+
+let number_touches_symbol { Number.left = li, lj; right = _, rj; _ } (si, sj) =
+  Int.abs (si - li) <= 1 && lj - 1 <= sj && sj <= rj + 1
+
+let%expect_test "number_touches_symbol" =
+  number_touches_symbol
+    { Number.value = 467; left = (0, 0); right = (0, 2) }
+    (1, 3)
+  |> [%sexp_of: bool] |> print_s;
+  [%expect {| true |}]
+
+let result t =
+  List.filter_map t.numbers ~f:(fun number ->
+      Option.some_if
+        (List.exists t.symbols ~f:(number_touches_symbol number))
+        number.value)
+  |> List.fold ~f:( + ) ~init:0
+
+let%expect_test "result" =
+  parse sample |> result |> printf "%d\n";
+  [%expect {| 4361 |}]
+
+let result2 _ = 0
+
+let run () =
+  match Sys.get_argv () with
+  | [| _; path |] ->
+      In_channel.read_lines path |> parse |> result |> printf "%d\n"
+  | [| _; "--2"; path |] ->
+      In_channel.read_lines path |> parse |> result2 |> printf "%d\n"
+  | _ -> assert false
