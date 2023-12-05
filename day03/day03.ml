@@ -23,7 +23,11 @@ module Number = struct
   type t = { value : int; left : Pos.t; right : Pos.t } [@@deriving sexp]
 end
 
-type t = { symbols : Pos.t list; numbers : Number.t list } [@@deriving sexp]
+module Symbol = struct
+  type t = { pos : Pos.t; is_gear : bool } [@@deriving sexp]
+end
+
+type t = { symbols : Symbol.t list; numbers : Number.t list } [@@deriving sexp]
 
 let empty = { symbols = []; numbers = [] }
 
@@ -56,8 +60,9 @@ let parse_line i s =
          `Number { Number.left = (i, left); value; right = (i, right - 1) })
         <?> "element/number";
         (let* pos in
-         let+ _ = symbol in
-         `Symbol (i, pos))
+         let+ c = symbol in
+         let symbol = { Symbol.pos = (i, pos); is_gear = Char.equal c '*' } in
+         `Symbol symbol)
         <?> "element/symbol";
         (let+ _ = many1 dot in
          `Dots)
@@ -71,7 +76,7 @@ let parse_line i s =
     List.fold elements ~init:empty ~f:(fun acc element ->
         match element with
         | `Number n -> { acc with numbers = n :: acc.numbers }
-        | `Symbol pos -> { acc with symbols = pos :: acc.symbols }
+        | `Symbol s -> { acc with symbols = s :: acc.symbols }
         | `Dots -> acc)
   in
   Angstrom.parse_string ~consume:All line s |> Result.ok_or_failwith
@@ -84,7 +89,10 @@ let%expect_test "parse" =
   parse sample |> [%sexp_of: t] |> print_s;
   [%expect
     {|
-    ((symbols ((8 5) (8 3) (5 5) (4 3) (3 6) (1 3)))
+    ((symbols
+      (((pos (8 5)) (is_gear true)) ((pos (8 3)) (is_gear false))
+       ((pos (5 5)) (is_gear false)) ((pos (4 3)) (is_gear true))
+       ((pos (3 6)) (is_gear false)) ((pos (1 3)) (is_gear true))))
      (numbers
       (((value 598) (left (9 5)) (right (9 7)))
        ((value 664) (left (9 1)) (right (9 3)))
@@ -97,13 +105,14 @@ let%expect_test "parse" =
        ((value 114) (left (0 5)) (right (0 7)))
        ((value 467) (left (0 0)) (right (0 2)))))) |}]
 
-let number_touches_symbol { Number.left = li, lj; right = _, rj; _ } (si, sj) =
+let number_touches_symbol { Number.left = li, lj; right = _, rj; _ }
+    { Symbol.pos = si, sj; _ } =
   Int.abs (si - li) <= 1 && lj - 1 <= sj && sj <= rj + 1
 
 let%expect_test "number_touches_symbol" =
   number_touches_symbol
     { Number.value = 467; left = (0, 0); right = (0, 2) }
-    (1, 3)
+    { pos = (1, 3); is_gear = false }
   |> [%sexp_of: bool] |> print_s;
   [%expect {| true |}]
 
@@ -118,7 +127,22 @@ let%expect_test "result" =
   parse sample |> result |> printf "%d\n";
   [%expect {| 4361 |}]
 
-let result2 _ = 0
+let result2 t =
+  List.fold t.symbols ~init:0 ~f:(fun acc symbol ->
+      match symbol.is_gear with
+      | false -> acc
+      | true -> (
+          let touching_numbers =
+            List.filter t.numbers ~f:(fun number ->
+                number_touches_symbol number symbol)
+          in
+          match touching_numbers with
+          | [ a; b ] -> acc + (a.value * b.value)
+          | _ -> acc))
+
+let%expect_test "result2" =
+  parse sample |> result2 |> printf "%d\n";
+  [%expect {| 467835 |}]
 
 let run () =
   match Sys.get_argv () with
