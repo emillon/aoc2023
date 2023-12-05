@@ -11,15 +11,6 @@ let sample =
     "Card 6: 31 18 13 56 72 | 74 77 10 23 35 67 36 11";
   ]
 
-(*
-    "1 Card 1: 5
-    "1 Card 2: 2
-    "1 Card 3: 2
-    "1 Card 4: 1
-    "1 Card 5: 0
-    "1 Card 6: 0
-    *)
-
 type line = { winning : int list; have : int list } [@@deriving sexp]
 type t = line list [@@deriving sexp]
 
@@ -36,16 +27,14 @@ let parse_line s =
   in
   let line =
     let open Angstrom in
-    let* _ = string "Card" in
-    let* _ = take_while1 Char.is_whitespace in
-    let* _ = number in
-    let* _ = string ":" in
-    let* _ = take_while1 Char.is_whitespace in
-    let* winning = numbers in
-    let* _ = string " |" in
-    let* _ = take_while1 Char.is_whitespace in
-    let* have = numbers in
-    return { winning; have }
+    let+ winning =
+      string "Card"
+      *> take_while1 Char.is_whitespace
+      *> number *> string ":"
+      *> take_while1 Char.is_whitespace
+      *> numbers
+    and+ have = string " |" *> take_while1 Char.is_whitespace *> numbers in
+    { winning; have }
   in
   Angstrom.parse_string ~consume:All line s |> Result.ok_or_failwith
 
@@ -78,7 +67,6 @@ let%expect_test "result" =
 let result2 lines =
   let cards = Array.of_list_map lines ~f:(fun _ -> 1) in
   let counts = Array.of_list_map lines ~f:count in
-  (*[%sexp_of: int array] a |> print_s;*)
   Array.iteri counts ~f:(fun i count ->
       for j = i + 1 to i + count do
         cards.(j) <- cards.(j) + cards.(i)
