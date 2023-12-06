@@ -24,3 +24,4 @@ build: [
     "@doc" {with-doc}
   ]
 ]
+available: [os = "linux" & arch != "arm32" & arch != "x86_32"]
