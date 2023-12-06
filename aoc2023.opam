@@ -5,8 +5,9 @@ depends: [
   "angstrom"
   "base"
   "diet"
-  "stdio"
+  "ppx_jane"
   "re"
+  "stdio"
   "odoc" {with-doc}
 ]
 build: [
