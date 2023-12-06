@@ -160,34 +160,52 @@ let%expect_test "parse" =
 
 let num_ranges d = Diet.Int.fold (fun _ acc -> acc + 1) d 0
 
-let eval_range_one (start, len) r =
-  let d1 =
-    Diet.Int.add (Diet.Int.Interval.make start (start + len - 1)) Diet.Int.empty
-  in
+let interval_add_offset i offset =
+  let x = Diet.Int.Interval.x i in
+  let y = Diet.Int.Interval.y i in
+  Diet.Int.Interval.make (x + offset) (y + offset)
+
+let diet_add_offset d offset =
+  Diet.Int.fold
+    (fun interval acc -> Diet.Int.add (interval_add_offset interval offset) acc)
+    d Diet.Int.empty
+
+let eval_range_one i r =
+  let d1 = Diet.Int.add i Diet.Int.empty in
   let d2 =
     Diet.Int.add (Diet.Int.Interval.make r.start r.end_) Diet.Int.empty
   in
   let d = Diet.Int.inter d1 d2 in
-  if Diet.Int.is_empty d then None
-  else (
-    assert (num_ranges d = 1);
-    let i = Diet.Int.choose d in
-    let x = Diet.Int.Interval.x i in
-    let y = Diet.Int.Interval.y i in
-    Some (x + r.offset, y - x + 1))
+  diet_add_offset d r.offset
 
-let eval_range r map = List.filter_map map ~f:(eval_range_one r)
+let eval_range r map =
+  List.fold map ~init:Diet.Int.empty ~f:(fun acc range ->
+      Diet.Int.union (eval_range_one r range) acc)
+
+type diet = Diet.Int.t
+
+let sexp_of_diet d =
+  Diet.Int.fold
+    (fun i acc ->
+      let x = Diet.Int.Interval.x i in
+      let y = Diet.Int.Interval.y i in
+      (x, y) :: acc)
+    d []
+  |> List.rev |> [%sexp_of: (int * int) list]
 
 let%expect_test "eval_range" =
   let t = parse sample in
   let a = List.hd_exn t.maps in
-  let test x = eval_range x a |> [%sexp_of: (int * int) list] |> print_s in
+  let test (start, len) =
+    let x = Diet.Int.Interval.make start (start + len - 1) in
+    eval_range x a |> [%sexp_of: diet] |> print_s
+  in
   test (0, 50);
-  [%expect {| ((0 50)) |}];
+  [%expect {| ((0 49)) |}];
   test (0, 52);
-  [%expect {| ((0 50) (52 2)) |}];
+  [%expect {| ((0 49) (52 53)) |}];
   test (2, 52);
-  [%expect {| ((2 48) (52 4)) |}]
+  [%expect {| ((2 49) (52 55)) |}]
 
 let eval_map n ranges =
   List.find_map_exn ranges ~f:(fun { start; end_; offset } ->
@@ -214,29 +232,29 @@ let result t =
   |> Option.value_exn
 
 let rec to_ranges = function
-  | start :: length :: seeds -> (start, length) :: to_ranges seeds
-  | [] -> []
+  | start :: length :: seeds ->
+      Diet.Int.add
+        (Diet.Int.Interval.make start (start + length - 1))
+        (to_ranges seeds)
+  | [] -> Diet.Int.empty
   | _ -> assert false
 
 let eval_all_ranges maps ranges =
   List.fold maps ~init:ranges ~f:(fun acc_ranges map ->
-      List.concat_map acc_ranges ~f:(fun range -> eval_range range map))
+      Diet.Int.fold
+        (fun interval acc -> Diet.Int.union (eval_range interval map) acc)
+        acc_ranges Diet.Int.empty)
 
 let%expect_test "eval_all_ranges" =
   let { maps; _ } = parse sample in
-  let test l =
-    eval_all_ranges maps l |> [%sexp_of: (int * int) list] |> print_s
-  in
-  test [ (0, 100) ];
-  [%expect
-    {|
-    ((22 14) (43 1) (36 7) (90 4) (1 18) (61 6) (20 2) (44 2) (85 5) (94 3)
-     (56 4) (97 3) (73 1) (0 1) (74 11) (46 10) (60 1) (68 5) (67 1) (19 1)) |}]
+  let test l = eval_all_ranges maps l |> [%sexp_of: diet] |> print_s in
+  test (Diet.Int.add (Diet.Int.Interval.make 0 99) Diet.Int.empty);
+  [%expect {|
+    ((0 99)) |}]
 
 let result2 t =
-  t.seeds |> to_ranges |> eval_all_ranges t.maps |> List.map ~f:fst
-  |> List.min_elt ~compare:Int.compare
-  |> Option.value_exn
+  t.seeds |> to_ranges |> eval_all_ranges t.maps |> Diet.Int.min_elt
+  |> Diet.Int.Interval.x
 
 let%expect_test "result2" =
   parse sample |> result2 |> printf "%d\n";
