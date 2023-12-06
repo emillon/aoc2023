@@ -15,7 +15,8 @@
    (>= 0.16))
   (base
    (>= v0.16))
-  diet
+  (diet
+   (>= 0.4))
   ppx_jane
   re
   stdio))
