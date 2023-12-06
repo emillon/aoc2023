@@ -5,7 +5,7 @@ depends: [
   "angstrom"
   "base"
   "diet"
-  "stdlib"
+  "stdio"
   "re"
   "odoc" {with-doc}
 ]

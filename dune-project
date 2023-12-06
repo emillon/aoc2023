@@ -4,4 +4,4 @@
 
 (package
  (name aoc2023)
- (depends angstrom base diet stdlib re))
+ (depends angstrom base diet stdio re))
