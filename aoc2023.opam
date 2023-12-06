@@ -6,7 +6,7 @@ homepage: "https://github.com/emillon/aoc2023"
 bug-reports: "https://github.com/emillon/aoc2023/issues"
 depends: [
   "dune" {>= "3.0"}
-  "angstrom"
+  "angstrom" {>= "0.16"}
   "base" {>= "v0.16"}
   "diet"
   "ppx_jane"

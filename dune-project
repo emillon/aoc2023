@@ -11,7 +11,8 @@
  (name aoc2023)
  (synopsis "Advent of code 2023")
  (depends
-  angstrom
+  (angstrom
+   (>= 0.16))
   (base
    (>= v0.16))
   diet
