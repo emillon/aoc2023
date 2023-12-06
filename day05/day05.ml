@@ -42,8 +42,43 @@ let sample =
 type range = { dst_start : int; src_start : int; length : int }
 [@@deriving sexp]
 
-type map = range list [@@deriving sexp]
+type range2 = { start : int; end_ : int; offset : int } [@@deriving sexp]
+type map = range2 list [@@deriving sexp]
 type t = { seeds : int list; maps : map list } [@@deriving sexp]
+
+let build_full_map prev_max ranges =
+  let moved =
+    List.fold ranges ~init:Diet.Int.empty
+      ~f:(fun acc { src_start; length; dst_start = _ } ->
+        Diet.Int.add
+          (Diet.Int.Interval.make src_start (src_start + length - 1))
+          acc)
+  in
+  let max = Int.max prev_max (Diet.Int.max_elt moved |> Diet.Int.Interval.y) in
+  let missing =
+    Diet.Int.diff
+      (Diet.Int.add (Diet.Int.Interval.make 0 max) Diet.Int.empty)
+      moved
+  in
+  let from_missing =
+    Diet.Int.fold
+      (fun interval acc ->
+        let x = Diet.Int.Interval.x interval in
+        let y = Diet.Int.Interval.y interval in
+        { start = x; end_ = y; offset = 0 } :: acc)
+      missing []
+  in
+  let r =
+    List.map ranges ~f:(fun { src_start; length; dst_start } ->
+        {
+          start = src_start;
+          end_ = src_start + length - 1;
+          offset = dst_start - src_start;
+        })
+    @ from_missing
+    |> List.sort ~compare:(fun a b -> Int.compare a.start b.start)
+  in
+  (r, max)
 
 let parse s =
   let number =
@@ -67,57 +102,98 @@ let parse s =
     and+ length = number in
     { dst_start; src_start; length }
   in
-
   let parse_map =
     let open Angstrom in
-    take_till Char.is_whitespace
-    *> string " map:" *> end_of_line *> sep_by1 end_of_line range
+    let+ map =
+      take_till Char.is_whitespace
+      *> string " map:" *> end_of_line *> sep_by1 end_of_line range
+    in
+    map
   in
   let file =
     let open Angstrom in
     let+ seeds = seeds <* empty_line
     and+ maps = sep_by1 empty_line parse_map <* end_of_line in
-    { seeds; maps }
+    let maps, _ =
+      List.fold maps ~init:([], 0) ~f:(fun (acc_l, max_size) map ->
+          let m, new_max_size = build_full_map max_size map in
+          (m :: acc_l, new_max_size))
+    in
+    { seeds; maps = List.rev maps }
   in
   Angstrom.parse_string ~consume:All file s |> Result.ok_or_failwith
+
+let%expect_test "build_full_map" =
+  build_full_map 0
+    [
+      { dst_start = 50; src_start = 98; length = 2 };
+      { dst_start = 52; src_start = 50; length = 48 };
+    ]
+  |> [%sexp_of: range2 list * int] |> print_s;
+  [%expect
+    {|
+    ((((start 0) (end_ 49) (offset 0)) ((start 50) (end_ 97) (offset 2))
+      ((start 98) (end_ 99) (offset -48)))
+     99) |}]
 
 let%expect_test "parse" =
   parse sample |> [%sexp_of: t] |> print_s;
   [%expect
     {|
-    ((seeds (79 14 55 13))
-     (maps
-      ((((dst_start 50) (src_start 98) (length 2))
-        ((dst_start 52) (src_start 50) (length 48)))
-       (((dst_start 0) (src_start 15) (length 37))
-        ((dst_start 37) (src_start 52) (length 2))
-        ((dst_start 39) (src_start 0) (length 15)))
-       (((dst_start 49) (src_start 53) (length 8))
-        ((dst_start 0) (src_start 11) (length 42))
-        ((dst_start 42) (src_start 0) (length 7))
-        ((dst_start 57) (src_start 7) (length 4)))
-       (((dst_start 88) (src_start 18) (length 7))
-        ((dst_start 18) (src_start 25) (length 70)))
-       (((dst_start 45) (src_start 77) (length 23))
-        ((dst_start 81) (src_start 45) (length 19))
-        ((dst_start 68) (src_start 64) (length 13)))
-       (((dst_start 0) (src_start 69) (length 1))
-        ((dst_start 1) (src_start 0) (length 69)))
-       (((dst_start 60) (src_start 56) (length 37))
-        ((dst_start 56) (src_start 93) (length 4)))))) |}]
+  ((seeds (79 14 55 13))
+   (maps
+    ((((start 0) (end_ 49) (offset 0)) ((start 50) (end_ 97) (offset 2))
+      ((start 98) (end_ 99) (offset -48)))
+     (((start 0) (end_ 14) (offset 39)) ((start 15) (end_ 51) (offset -15))
+      ((start 52) (end_ 53) (offset -15)) ((start 54) (end_ 99) (offset 0)))
+     (((start 0) (end_ 6) (offset 42)) ((start 7) (end_ 10) (offset 50))
+      ((start 11) (end_ 52) (offset -11)) ((start 53) (end_ 60) (offset -4))
+      ((start 61) (end_ 99) (offset 0)))
+     (((start 0) (end_ 17) (offset 0)) ((start 18) (end_ 24) (offset 70))
+      ((start 25) (end_ 94) (offset -7)) ((start 95) (end_ 99) (offset 0)))
+     (((start 0) (end_ 44) (offset 0)) ((start 45) (end_ 63) (offset 36))
+      ((start 64) (end_ 76) (offset 4)) ((start 77) (end_ 99) (offset -32)))
+     (((start 0) (end_ 68) (offset 1)) ((start 69) (end_ 69) (offset -69))
+      ((start 70) (end_ 99) (offset 0)))
+     (((start 0) (end_ 55) (offset 0)) ((start 56) (end_ 92) (offset 4))
+      ((start 93) (end_ 96) (offset -37)) ((start 97) (end_ 99) (offset 0)))))) |}]
 
-let eval_map map n =
-  match
-    List.find_map map ~f:(fun { dst_start; src_start; length } ->
-        if src_start <= n && n < src_start + length then
-          Some (n - src_start + dst_start)
-        else None)
-  with
-  | Some x -> x
-  | None -> n
+let num_ranges d = Diet.Int.fold (fun _ acc -> acc + 1) d 0
 
-let rec eval maps n =
-  match maps with [] -> n | map :: maps -> n |> eval_map map |> eval maps
+let eval_range_one (start, len) r =
+  let d1 =
+    Diet.Int.add (Diet.Int.Interval.make start (start + len - 1)) Diet.Int.empty
+  in
+  let d2 =
+    Diet.Int.add (Diet.Int.Interval.make r.start r.end_) Diet.Int.empty
+  in
+  let d = Diet.Int.inter d1 d2 in
+  if Diet.Int.is_empty d then None
+  else (
+    assert (num_ranges d = 1);
+    let i = Diet.Int.choose d in
+    let x = Diet.Int.Interval.x i in
+    let y = Diet.Int.Interval.y i in
+    Some (x + r.offset, y - x + 1))
+
+let eval_range r map = List.filter_map map ~f:(eval_range_one r)
+
+let%expect_test "eval_range" =
+  let t = parse sample in
+  let a = List.hd_exn t.maps in
+  let test x = eval_range x a |> [%sexp_of: (int * int) list] |> print_s in
+  test (0, 50);
+  [%expect {| ((0 50)) |}];
+  test (0, 52);
+  [%expect {| ((0 50) (52 2)) |}];
+  test (2, 52);
+  [%expect {| ((2 48) (52 4)) |}]
+
+let eval_map n ranges =
+  List.find_map_exn ranges ~f:(fun { start; end_; offset } ->
+      Option.some_if (n >= start && n <= end_) (n + offset))
+
+let eval maps n = List.fold ~f:eval_map ~init:n maps
 
 let%expect_test "eval" =
   let { maps; _ } = parse sample in
@@ -137,7 +213,34 @@ let result t =
   |> List.min_elt ~compare:Int.compare
   |> Option.value_exn
 
-let result2 _ = 0
+let rec to_ranges = function
+  | start :: length :: seeds -> (start, length) :: to_ranges seeds
+  | [] -> []
+  | _ -> assert false
+
+let eval_all_ranges maps ranges =
+  List.fold maps ~init:ranges ~f:(fun acc_ranges map ->
+      List.concat_map acc_ranges ~f:(fun range -> eval_range range map))
+
+let%expect_test "eval_all_ranges" =
+  let { maps; _ } = parse sample in
+  let test l =
+    eval_all_ranges maps l |> [%sexp_of: (int * int) list] |> print_s
+  in
+  test [ (0, 100) ];
+  [%expect
+    {|
+    ((22 14) (43 1) (36 7) (90 4) (1 18) (61 6) (20 2) (44 2) (85 5) (94 3)
+     (56 4) (97 3) (73 1) (0 1) (74 11) (46 10) (60 1) (68 5) (67 1) (19 1)) |}]
+
+let result2 t =
+  t.seeds |> to_ranges |> eval_all_ranges t.maps |> List.map ~f:fst
+  |> List.min_elt ~compare:Int.compare
+  |> Option.value_exn
+
+let%expect_test "result2" =
+  parse sample |> result2 |> printf "%d\n";
+  [%expect {| 46 |}]
 
 let run () =
   match Sys.get_argv () with
