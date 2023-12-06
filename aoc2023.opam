@@ -3,7 +3,7 @@ opam-version: "2.0"
 depends: [
   "dune" {>= "3.0"}
   "angstrom"
-  "base"
+  "base" {>= "v0.16"}
   "diet"
   "ppx_jane"
   "re"

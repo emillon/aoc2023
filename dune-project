@@ -4,4 +4,11 @@
 
 (package
  (name aoc2023)
- (depends angstrom base diet ppx_jane re stdio))
+ (depends
+  angstrom
+  (base
+   (>= v0.16))
+  diet
+  ppx_jane
+  re
+  stdio))
