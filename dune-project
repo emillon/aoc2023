@@ -12,7 +12,7 @@
  (synopsis "Advent of code 2023")
  (depends
   (angstrom
-   (>= 0.16))
+   (>= 0.15))
   (base
    (>= v0.16))
   (diet
