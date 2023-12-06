@@ -54,39 +54,30 @@ let parse s =
   in
   let empty_line =
     let open Angstrom in
-    let* _ = end_of_line in
-    let* _ = end_of_line in
-    return ()
+    end_of_line *> end_of_line
   in
   let seeds =
     let open Angstrom in
-    let* _ = string "seeds: " in
-    sep_by1 (char ' ') number
+    string "seeds: " *> sep_by1 (char ' ') number
   in
   let range =
     let open Angstrom in
-    let* dst_start = number in
-    let* _ = char ' ' in
-    let* src_start = number in
-    let* _ = char ' ' in
-    let* length = number in
-    return { dst_start; src_start; length }
+    let+ dst_start = number <* char ' '
+    and+ src_start = number <* char ' '
+    and+ length = number in
+    { dst_start; src_start; length }
   in
 
   let parse_map =
     let open Angstrom in
-    let* _ = take_till Char.is_whitespace in
-    let* _ = string " map:" in
-    let* () = end_of_line in
-    sep_by1 end_of_line range
+    take_till Char.is_whitespace
+    *> string " map:" *> end_of_line *> sep_by1 end_of_line range
   in
   let file =
     let open Angstrom in
-    let* seeds in
-    let* _ = empty_line in
-    let* maps = sep_by1 empty_line parse_map in
-    let* () = end_of_line in
-    return { seeds; maps }
+    let+ seeds = seeds <* empty_line
+    and+ maps = sep_by1 empty_line parse_map <* end_of_line in
+    { seeds; maps }
   in
   Angstrom.parse_string ~consume:All file s |> Result.ok_or_failwith
 
