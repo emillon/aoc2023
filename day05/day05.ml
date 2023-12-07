@@ -1,4 +1,5 @@
 open Base
+open Lib
 open Stdio
 
 let sample =
@@ -81,12 +82,7 @@ let build_full_map prev_max ranges =
   (r, max)
 
 let parse s =
-  let number =
-    let open Angstrom in
-    (let+ s = take_while1 Char.is_digit in
-     Int.of_string s)
-    <?> "number"
-  in
+  let open Angstrom_helpers in
   let empty_line =
     let open Angstrom in
     end_of_line *> end_of_line

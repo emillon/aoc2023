@@ -19,7 +19,7 @@ let generate_dune n oc =
   outf oc {| (name day%02d)|} n;
   outf oc {| (public_name aoc2023.day%02d)|} n;
   outf oc {| (modules day%02d)|} n;
-  outf oc {| (libraries base stdio angstrom diet)|};
+  outf oc {| (libraries base lib stdio)|};
   outf oc {| (preprocess|};
   outf oc {|  (pps ppx_jane))|};
   outf oc {| (inline_tests))|};
@@ -54,6 +54,7 @@ let generate_dune n oc =
 
 let generate_lib oc =
   outf oc {|open Base|};
+  outf oc {|open Lib|};
   outf oc {|open Stdio|};
   outf oc {||};
   outf oc {|let sample = []|};

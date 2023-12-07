@@ -1,4 +1,5 @@
 open Base
+open Lib
 open Stdio
 
 let sample = [ "1abc2"; "pqr3stu8vwx"; "a1b2c3d4e5f"; "treb7uchet" ]
@@ -17,7 +18,6 @@ let%expect_test "extract_all_digits" =
   [%expect {| (1 2 3 4 5) |}]
 
 let first_and_last l = (List.hd_exn l, List.last_exn l)
-let sum l = List.fold ~f:( + ) ~init:0 l
 
 let make_number (a, b) =
   assert (a < 10);

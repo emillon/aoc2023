@@ -2,7 +2,7 @@
  (name day02)
  (public_name aoc2023.day02)
  (modules day02)
- (libraries base stdio angstrom)
+ (libraries base lib stdio angstrom)
  (preprocess
   (pps ppx_jane))
  (inline_tests))

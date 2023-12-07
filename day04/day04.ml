@@ -1,4 +1,5 @@
 open Base
+open Lib
 open Stdio
 
 let sample =
@@ -15,12 +16,7 @@ type line = { winning : int list; have : int list } [@@deriving sexp]
 type t = line list [@@deriving sexp]
 
 let parse_line s =
-  let number =
-    let open Angstrom in
-    (let+ s = take_while1 Char.is_digit in
-     Int.of_string s)
-    <?> "number"
-  in
+  let open Angstrom_helpers in
   let numbers =
     let open Angstrom in
     sep_by1 (take_while1 Char.is_whitespace) number
@@ -58,7 +54,7 @@ let score line =
   let count = count line in
   if count = 0 then 0 else Int.pow 2 (count - 1)
 
-let result lines = List.fold lines ~init:0 ~f:(fun acc line -> acc + score line)
+let result lines = List.map lines ~f:score |> sum
 
 let%expect_test "result" =
   parse sample |> result |> printf "%d\n";

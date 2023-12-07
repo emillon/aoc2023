@@ -1,4 +1,5 @@
 open Base
+open Lib
 open Stdio
 
 let sample =
@@ -35,15 +36,10 @@ let union a b =
   { symbols = a.symbols @ b.symbols; numbers = a.numbers @ b.numbers }
 
 let parse_line i s =
+  let open Angstrom_helpers in
   let dot =
     let open Angstrom in
     char '.' <?> "dot"
-  in
-  let number =
-    let open Angstrom in
-    (let+ s = take_while1 Char.is_digit in
-     Int.of_string s)
-    <?> "number"
   in
   let symbol =
     let open Angstrom in
@@ -121,7 +117,7 @@ let result t =
       Option.some_if
         (List.exists t.symbols ~f:(number_touches_symbol number))
         number.value)
-  |> List.fold ~f:( + ) ~init:0
+  |> sum
 
 let%expect_test "result" =
   parse sample |> result |> printf "%d\n";

@@ -25,7 +25,7 @@ The contents are the following:
    (name day03)
    (public_name aoc2023.day03)
    (modules day03)
-   (libraries base stdio angstrom diet)
+   (libraries base lib stdio)
    (preprocess
     (pps ppx_jane))
    (inline_tests))
@@ -60,6 +60,7 @@ The contents are the following:
 
   $ cat day03/day03.ml
   open Base
+  open Lib
   open Stdio
   
   let sample = []

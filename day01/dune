@@ -2,7 +2,7 @@
  (name day01)
  (public_name aoc2023.day01)
  (modules day01)
- (libraries base stdio str)
+ (libraries base lib stdio str)
  (preprocess
   (pps ppx_jane))
  (inline_tests))

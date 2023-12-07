@@ -1,4 +1,5 @@
 open Base
+open Lib
 open Stdio
 
 let sample =
@@ -36,12 +37,7 @@ let subset_from_components components =
       | `Blue -> { acc with blue = amount })
 
 let parse_line s =
-  let number =
-    let open Angstrom in
-    (let+ s = take_while1 Char.is_digit in
-     Int.of_string s)
-    <?> "number"
-  in
+  let open Angstrom_helpers in
   let id = number in
   let color =
     let open Angstrom in
@@ -100,9 +96,6 @@ let%expect_test "parse" =
         ((red 14) (green 3) (blue 15)))))
      ((id 5)
       (subsets (((red 6) (green 3) (blue 1)) ((red 1) (green 2) (blue 2)))))) |}]
-
-(** XXX *)
-let sum = List.fold ~f:( + ) ~init:0
 
 let result lines =
   List.filter_map lines ~f:(fun { id; subsets } ->
