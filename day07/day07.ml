@@ -4,7 +4,7 @@ open Stdio
 
 let sample = [ "32T3K 765"; "T55J5 684"; "KK677 28"; "KTJJT 220"; "QQQJA 483" ]
 
-type card = C2 | C3 | C4 | C5 | C6 | C7 | C8 | C9 | T | J | Q | K | A
+type card = Joker | C2 | C3 | C4 | C5 | C6 | C7 | C8 | C9 | T | J | Q | K | A
 [@@deriving compare, equal, sexp]
 
 type hand = card list [@@deriving sexp]
@@ -65,10 +65,18 @@ type hand_type =
   | Five_of_a_kind
 [@@deriving compare, sexp]
 
+let rec add_last delta = function
+  | [] -> []
+  | [ n ] -> [ n + delta ]
+  | x :: xs -> x :: add_last delta xs
+
 let card_counts l =
-  List.sort l ~compare:compare_card
+  let jokers, non_jokers = List.partition_tf l ~f:(equal_card Joker) in
+  non_jokers
+  |> List.sort ~compare:compare_card
   |> List.group ~break:(fun a b -> not (equal_card a b))
   |> List.map ~f:List.length
+  |> add_last (List.length jokers)
   |> List.sort ~compare:Int.compare
 
 let hand_type l =
@@ -126,7 +134,15 @@ let%expect_test "result" =
   parse sample |> result |> printf "%d\n";
   [%expect {| 6440 |}]
 
-let result2 _ = 0
+let set_jokers l =
+  List.map l ~f:(fun l ->
+      { l with hand = List.map l.hand ~f:(function J -> Joker | c -> c) })
+
+let result2 l = l |> set_jokers |> result
+
+let%expect_test "result2" =
+  parse sample |> result2 |> printf "%d\n";
+  [%expect {| 5905 |}]
 
 let run () =
   match Sys.get_argv () with
