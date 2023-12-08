@@ -2,6 +2,7 @@ open Base
 
 let sum l = List.fold ~f:( + ) ~init:0 l
 let product l = List.fold ~f:( * ) ~init:1 l
+let fold1 ~f = function [] -> assert false | h :: t -> List.fold ~init:h ~f t
 
 module Angstrom_helpers = struct
   let number =

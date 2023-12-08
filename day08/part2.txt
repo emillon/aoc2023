@@ -1,9 +1,1 @@
-(nodes (start_nodes (AAA BFA DFA QJA SBA XFA))
- (end_nodes (BKZ BNZ MGZ SSZ TQZ ZZZ)))
-(find_cycle_info (off 1) (length 18023) (end_offs (18022)))
-(find_cycle_info (off 4) (length 19637) (end_offs (19636)))
-(find_cycle_info (off 3) (length 21251) (end_offs (21250)))
-(find_cycle_info (off 1) (length 11567) (end_offs (11566)))
-(find_cycle_info (off 7) (length 14257) (end_offs (14256)))
-(find_cycle_info (off 3) (length 16409) (end_offs (16408)))
-0
+14449445933179
