@@ -4,7 +4,7 @@ open Stdio
 
 let sample = [ "32T3K 765"; "T55J5 684"; "KK677 28"; "KTJJT 220"; "QQQJA 483" ]
 
-type card = Joker | C2 | C3 | C4 | C5 | C6 | C7 | C8 | C9 | T | J | Q | K | A
+type card = Joker | C of int | T | J | Q | K | A
 [@@deriving compare, equal, sexp]
 
 type hand = card list [@@deriving sexp]
@@ -12,14 +12,7 @@ type line = { hand : hand; bid : int } [@@deriving sexp]
 type t = line list [@@deriving sexp]
 
 let parse_card = function
-  | '2' -> Some C2
-  | '3' -> Some C3
-  | '4' -> Some C4
-  | '5' -> Some C5
-  | '6' -> Some C6
-  | '7' -> Some C7
-  | '8' -> Some C8
-  | '9' -> Some C9
+  | '2' .. '9' as c -> Some (C (Char.to_int c - Char.to_int '0'))
   | 'T' -> Some T
   | 'J' -> Some J
   | 'Q' -> Some Q
@@ -51,8 +44,9 @@ let%expect_test "parse" =
   parse sample |> [%sexp_of: t] |> print_s;
   [%expect
     {|
-    (((hand (C3 C2 T C3 K)) (bid 765)) ((hand (T C5 C5 J C5)) (bid 684))
-     ((hand (K K C6 C7 C7)) (bid 28)) ((hand (K T J J T)) (bid 220))
+    (((hand ((C 3) (C 2) T (C 3) K)) (bid 765))
+     ((hand (T (C 5) (C 5) J (C 5))) (bid 684))
+     ((hand (K K (C 6) (C 7) (C 7))) (bid 28)) ((hand (K T J J T)) (bid 220))
      ((hand (Q Q Q J A)) (bid 483))) |}]
 
 type hand_type =
@@ -78,8 +72,7 @@ let add_last delta = function
 let card_counts l =
   let jokers, non_jokers = List.partition_tf l ~f:(equal_card Joker) in
   non_jokers
-  |> List.sort ~compare:compare_card
-  |> List.group ~break:(fun a b -> not (equal_card a b))
+  |> List.sort_and_group ~compare:compare_card
   |> List.map ~f:List.length
   |> List.sort ~compare:Int.compare
   |> add_last (List.length jokers)
@@ -127,7 +120,9 @@ let%expect_test "compare_hands" =
   |> List.sort ~compare:compare_hand
   |> [%sexp_of: hand list] |> print_s;
   [%expect
-    {| ((C3 C2 T C3 K) (K T J J T) (K K C6 C7 C7) (T C5 C5 J C5) (Q Q Q J A)) |}]
+    {|
+      (((C 3) (C 2) T (C 3) K) (K T J J T) (K K (C 6) (C 7) (C 7))
+       (T (C 5) (C 5) J (C 5)) (Q Q Q J A)) |}]
 
 let result l =
   List.sort l ~compare:(fun a b -> compare_hand a.hand b.hand)
