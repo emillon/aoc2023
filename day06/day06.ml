@@ -31,30 +31,16 @@ let%expect_test "parser" =
     (((time 7) (distance 9)) ((time 15) (distance 40))
      ((time 30) (distance 200))) |}]
 
-let runs { time; distance } =
-  List.range 0 time ~stop:`inclusive
-  |> List.map ~f:(fun hold_time ->
-         let speed = hold_time in
-         let remaining_time = time - hold_time in
-         let score = speed * remaining_time in
-         let beats_record = score > distance in
-         (hold_time, score, beats_record))
+let result_for_race { time; distance } =
+  let r = ref 0 in
+  for hold_time = 0 to time do
+    let speed = hold_time in
+    let remaining_time = time - hold_time in
+    let score = speed * remaining_time in
+    if score > distance then Int.incr r
+  done;
+  !r
 
-let%expect_test "runs" =
-  let test r = runs r |> [%sexp_of: (int * int * bool) list] |> print_s in
-  test { time = 7; distance = 9 };
-  [%expect
-    {|
-    ((0 0 false) (1 6 false) (2 10 true) (3 12 true) (4 12 true) (5 10 true)
-     (6 6 false) (7 0 false)) |}];
-  test { time = 15; distance = 40 };
-  [%expect
-    {|
-    ((0 0 false) (1 14 false) (2 26 false) (3 36 false) (4 44 true) (5 50 true)
-     (6 54 true) (7 56 true) (8 56 true) (9 54 true) (10 50 true) (11 44 true)
-     (12 36 false) (13 26 false) (14 14 false) (15 0 false)) |}]
-
-let result_for_race r = runs r |> List.count ~f:(fun (_, _, ok) -> ok)
 let result l = List.map l ~f:result_for_race |> product
 
 let%expect_test "result" =
@@ -70,7 +56,9 @@ let combine_inputs l =
   { time = Int.of_string time_s; distance = Int.of_string distance_s }
 
 let result2 l = combine_inputs l |> result_for_race
-let%expect_test "result" = parse sample |> result2 |> printf "%d\n";
+
+let%expect_test "result" =
+  parse sample |> result2 |> printf "%d\n";
   [%expect {| 71503 |}]
 
 let run () =
