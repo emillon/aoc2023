@@ -2,7 +2,7 @@
  (name day08)
  (public_name aoc2023.day08)
  (modules day08)
- (libraries base lib stdio zarith)
+ (libraries base lib stdio)
  (preprocess
   (pps ppx_jane))
  (inline_tests))
