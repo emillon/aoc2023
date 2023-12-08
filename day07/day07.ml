@@ -65,29 +65,38 @@ type hand_type =
   | Five_of_a_kind
 [@@deriving compare, sexp]
 
-let rec add_last delta = function
-  | [] -> []
-  | [ n ] -> [ n + delta ]
-  | x :: xs -> x :: add_last delta xs
+let add_last delta = function
+  | [] -> [ delta ]
+  | l ->
+      let rec go = function
+        | [] -> []
+        | [ n ] -> [ n + delta ]
+        | x :: xs -> x :: go xs
+      in
+      go l
 
 let card_counts l =
   let jokers, non_jokers = List.partition_tf l ~f:(equal_card Joker) in
-  non_jokers
-  |> List.sort ~compare:compare_card
-  |> List.group ~break:(fun a b -> not (equal_card a b))
-  |> List.map ~f:List.length
-  |> add_last (List.length jokers)
-  |> List.sort ~compare:Int.compare
+  let njokers = List.length jokers in
+  ( non_jokers
+    |> List.sort ~compare:compare_card
+    |> List.group ~break:(fun a b -> not (equal_card a b))
+    |> List.map ~f:List.length
+    (*|> add_last (njokers)*)
+    |> List.sort ~compare:Int.compare,
+    njokers )
 
 let hand_type l =
   match card_counts l with
-  | [ 5 ] -> Five_of_a_kind
-  | [ 1; 4 ] -> Four_of_a_kind
-  | [ 2; 3 ] -> Full_house
-  | [ 1; 1; 3 ] -> Three_of_a_kind
-  | [ 1; 2; 2 ] -> Two_pairs
-  | [ 1; 1; 1; 2 ] -> One_pair
-  | _ -> High_card
+  | [ 5 ], 0 | [ 4 ], 1 | [ 3 ], 2 | [ 2 ], 3 | [ 1 ], 4 | [], 5 ->
+      Five_of_a_kind
+  | [ 1; 4 ], 0 | [ 1; 3 ], 1 | [ 1; 2 ], 2 | [ 1; 1 ], 3 -> Four_of_a_kind
+  | [ 2; 3 ], 0 | [ 2; 2 ], 1 -> Full_house
+  | [ 1; 1; 3 ], 0 | [ 1; 1; 1 ], 2 | [ 1; 1; 2 ], 1 -> Three_of_a_kind
+  | [ 1; 2; 2 ], 0 -> Two_pairs
+  | [ 1; 1; 1; 2 ], 0 | [ 1; 1; 1; 1 ], 1 -> One_pair
+  | [ 1; 1; 1; 1; 1 ], 0 -> High_card
+  | cs, jokers -> raise_s [%message "hand_type" (cs : int list) (jokers : int)]
 
 let%expect_test "hand_type" =
   let test s =
