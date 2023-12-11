@@ -69,16 +69,16 @@ The contents are the following:
   [@@deriving sexp]
   let parse _ = ()
   let%expect_test "parse" =
-    parse sample |> parse |> [%sexp_of: t] |> print_s;
+    parse sample |> [%sexp_of: t] |> print_s;
     [%expect {| () |}]
   
   let result _ = 0
   let%expect_test "result" =
-    parse sample |> parse |> result |> printf "%d\n";
+    parse sample |> result |> printf "%d\n";
     [%expect {| 0 |}]
   let result2 _ = 0
   let%expect_test "result2" =
-    parse sample |> parse |> result2 |> printf "%d\n";
+    parse sample |> result2 |> printf "%d\n";
     [%expect {| 0 |}]
   
   let run () =
