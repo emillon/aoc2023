@@ -17,6 +17,7 @@ The contents are the following:
   day03
   day03/day03.ml
   day03/dune
+  day03/input.txt
   day03/part1.txt
   day03/part2.txt
 
@@ -60,13 +61,25 @@ The contents are the following:
 
   $ cat day03/day03.ml
   open Base
-  open Lib
+  open! Lib
   open Stdio
   
   let sample = []
+  type t = unit
+  [@@deriving sexp]
+  let parse _ = ()
+  let%expect_test "parse" =
+    parse sample |> parse |> [%sexp_of: t] |> print_s;
+    [%expect {| () |}]
   
   let result _ = 0
+  let%expect_test "result" =
+    parse sample |> parse |> result |> printf "%d\n";
+    [%expect {| 0 |}]
   let result2 _ = 0
+  let%expect_test "result2" =
+    parse sample |> parse |> result2 |> printf "%d\n";
+    [%expect {| 0 |}]
   
   let run () =
     match Sys.get_argv () with
@@ -75,3 +88,9 @@ The contents are the following:
     | [| _; "--2"; path |] ->
         In_channel.read_all path |> parse |> result2 |> printf "%d\n"
     | _ -> assert false
+
+  $ cat day03/input.txt
+  $ cat day03/part1.txt
+  0
+  $ cat day03/part2.txt
+  0

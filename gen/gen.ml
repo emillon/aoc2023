@@ -54,13 +54,25 @@ let generate_dune n oc =
 
 let generate_lib oc =
   outf oc {|open Base|};
-  outf oc {|open Lib|};
+  outf oc {|open! Lib|};
   outf oc {|open Stdio|};
   outf oc {||};
   outf oc {|let sample = []|};
+  outf oc {|type t = unit|};
+  outf oc {|[@@deriving sexp]|};
+  outf oc {|let parse _ = ()|};
+  outf oc {|let%%expect_test "parse" =|};
+  outf oc {|  parse sample |> parse |> [%%sexp_of: t] |> print_s;|};
+  outf oc {x|  [%%expect {| () |}]|x};
   outf oc {||};
   outf oc {|let result _ = 0|};
+  outf oc {|let%%expect_test "result" =|};
+  outf oc {|  parse sample |> parse |> result |> printf "%%d\n";|};
+  outf oc {x|  [%%expect {| 0 |}]|x};
   outf oc {|let result2 _ = 0|};
+  outf oc {|let%%expect_test "result2" =|};
+  outf oc {|  parse sample |> parse |> result2 |> printf "%%d\n";|};
+  outf oc {x|  [%%expect {| 0 |}]|x};
   outf oc {||};
   outf oc {|let run () =|};
   outf oc {|  match Sys.get_argv () with|};
@@ -72,19 +84,33 @@ let generate_lib oc =
     {|      In_channel.read_all path |> parse |> result2 |> printf "%%d\n"|};
   outf oc {|  | _ -> assert false|}
 
-let touch path = Out_channel.write_all path ~data:""
+type data_file = { basename : string; write : Out_channel.t -> unit }
+
+let data_files n =
+  let dirname = Printf.sprintf "day%02d" n in
+  [
+    { basename = "dune"; write = generate_dune n };
+    { basename = dirname ^ ".ml"; write = generate_lib };
+    {
+      basename = "part1.txt";
+      write = (fun oc -> Out_channel.output_string oc "0\n");
+    };
+    {
+      basename = "part2.txt";
+      write = (fun oc -> Out_channel.output_string oc "0\n");
+    };
+    { basename = "input.txt"; write = ignore };
+  ]
+
+let generate_data_files dir l =
+  List.iter l ~f:(fun { basename; write } ->
+      let path = Stdlib.Filename.concat dir basename in
+      Out_channel.with_file path ~f:write)
 
 let generate n =
   let dirname = Printf.sprintf "day%02d" n in
   create_dir dirname;
-  Out_channel.with_file
-    (Stdlib.Filename.concat dirname "dune")
-    ~f:(generate_dune n);
-  Out_channel.with_file
-    (Stdlib.Filename.concat dirname (dirname ^ ".ml"))
-    ~f:generate_lib;
-  touch (Stdlib.Filename.concat dirname "part1.txt");
-  touch (Stdlib.Filename.concat dirname "part2.txt")
+  generate_data_files dirname (data_files n)
 
 let () =
   match Sys.get_argv () with
