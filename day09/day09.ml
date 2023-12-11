@@ -59,11 +59,11 @@ let%expect_test "result" =
   parse sample |> result |> printf "%d\n";
   [%expect {| 114 |}]
 
-let result2 _ = 0
+let result2 ll = List.map ~f:List.rev ll |> result
 
 let%expect_test "result2" =
   parse sample |> result2 |> printf "%d\n";
-  [%expect {| 0 |}]
+  [%expect {| 2 |}]
 
 let run () =
   match Sys.get_argv () with
