@@ -100,32 +100,33 @@ let%expect_test "is_empty_row" =
   parse sample |> empty_rows |> [%sexp_of: int list] |> print_s;
   [%expect {| (7 3) |}]
 
-let add_row t row =
+let add_row ~factor t row =
   Set.map
     (module Pos)
     t
     ~f:(fun (i, j) ->
-      (* XXX off by one? *)
-      let new_j = if j > row then j + 1 else j in
+      let new_j = if j > row then j + factor - 1 else j in
       (i, new_j))
 
-let add_empty_rows rows t = List.fold rows ~init:t ~f:add_row
+let add_empty_rows ~factor rows t = List.fold rows ~init:t ~f:(add_row ~factor)
 
-let add_column t column =
+let add_column ~factor t column =
   Set.map
     (module Pos)
     t
     ~f:(fun (i, j) ->
-      (* XXX off by one? *)
-      let new_i = if i > column then i + 1 else i in
+      let new_i = if i > column then i + factor - 1 else i in
       (new_i, j))
 
-let add_empty_columns columns t = List.fold columns ~init:t ~f:add_column
+let add_empty_columns ~factor columns t =
+  List.fold columns ~init:t ~f:(add_column ~factor)
 
-let expand t =
+let expand ~factor t =
   let empty_rows = empty_rows t in
   let empty_columns = empty_columns t in
-  t |> add_empty_rows empty_rows |> add_empty_columns empty_columns
+  t
+  |> add_empty_rows ~factor empty_rows
+  |> add_empty_columns ~factor empty_columns
 
 let view t =
   let imax, jmax = bounds t in
@@ -137,7 +138,7 @@ let view t =
   done
 
 let%expect_test "expand" =
-  parse sample |> expand |> view;
+  parse sample |> expand ~factor:2 |> view;
   [%expect
     {|
     ....#........
@@ -169,19 +170,24 @@ let fold_over_unique_pairs t ~init ~f =
       let _, gt = Set.split_le_gt t a in
       Set.fold gt ~init:acc ~f:(fun acc b -> f acc a b))
 
-let result t =
-  expand t
-  |> fold_over_unique_pairs ~init:0 ~f:(fun acc a b -> acc + distance a b)
+let sum_of_distances t =
+  fold_over_unique_pairs t ~init:0 ~f:(fun acc a b -> acc + distance a b)
+
+let result_gen t ~factor = expand ~factor t |> sum_of_distances
+let result t = result_gen t ~factor:2
 
 let%expect_test "result" =
   parse sample |> result |> printf "%d\n";
   [%expect {| 374 |}]
 
-let result2 _ = 0
+let result2 t = expand ~factor:1_000_000 t |> sum_of_distances
 
 let%expect_test "result2" =
-  parse sample |> result2 |> printf "%d\n";
-  [%expect {| 0 |}]
+  let test factor = parse sample |> result_gen ~factor |> printf "%d\n" in
+  test 10;
+  [%expect {| 1030 |}];
+  test 100;
+  [%expect {| 8410 |}]
 
 let run () =
   match Sys.get_argv () with
