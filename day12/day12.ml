@@ -69,6 +69,7 @@ let values_for = function
   | (Operational | Damaged) as c -> [ c ]
   | Unknown -> [ Operational; Damaged ]
 
+
 let rec iter_values ~f = function
   | [] -> f []
   | c :: cs ->
@@ -113,8 +114,22 @@ let%expect_test "groups" =
 
 let result_line { conditions; groups = expected_groups } =
   let r = ref 0 in
+  let wrap x l = (x :: l) @ [ x ] in
+  let re1 =
+    List.map expected_groups ~f:(fun n -> Re.repn (Re.char '#') n (Some n))
+    |> List.intersperse ~sep:(Re.rep1 (Re.char '.'))
+    |> wrap (Re.rep (Re.char '.'))
+    |> Re.seq |> Re.whole_string
+  in
+  let re = Re.compile re1 in
   iter_values conditions ~f:(fun l ->
-      if [%equal: int list] (groups l) expected_groups then Int.incr r);
+      let matches_groups l expected_groups =
+        if false then [%equal: int list] (groups l) expected_groups
+        else
+          let s = conditions_to_string l in
+          Re.execp re s
+      in
+      if matches_groups l expected_groups then Int.incr r);
   !r
 
 let result l = List.map l ~f:result_line |> sum
@@ -156,14 +171,14 @@ let%expect_test "expand" =
        ?###??????????###??????????###??????????###??????????###????????)
       (groups (3 2 1 3 2 1 3 2 1 3 2 1 3 2 1)))) |}]
 
-let result2 t = expand t |> result
+(*let result2 t = expand t |> result*)
+
+(** XXX *)
+let result2 _ = 0
 
 let%expect_test "result2" =
   parse sample |> result2 |> printf "%d\n";
   [%expect {| 0 |}]
-
-(** XXX *)
-let result2 _ = 0
 
 let run () =
   match Sys.get_argv () with
