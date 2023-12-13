@@ -120,28 +120,18 @@ let equal kind a b =
 let is_col_reflection kind m imax col_i =
   (* i means i/i+1 act as mirror *)
   let left, right = Set.partition_tf m ~f:(fun (ri, _rj) -> ri <= col_i) in
-  if 2 * col_i < imax - 1 then
-    let mirror_of_left =
-      Set.filter_map
-        (module Pos)
-        right
-        ~f:(fun (i, j) ->
-          if col_i + 1 <= i && i <= (2 * col_i) + 1 then
-            Some (reflect_col (i, j) col_i)
-          else None)
-    in
-    equal kind mirror_of_left left
-  else
-    let mirror_of_right =
-      Set.filter_map
-        (module Pos)
-        left
-        ~f:(fun (i, j) ->
-          if (2 * col_i) - imax + 1 <= i && i <= col_i then
-            Some (reflect_col (i, j) col_i)
-          else None)
-    in
-    equal kind mirror_of_right right
+  let part_to_mirror, side, min, max =
+    if 2 * col_i < imax - 1 then (right, left, col_i + 1, (2 * col_i) + 1)
+    else (left, right, (2 * col_i) - imax + 1, col_i)
+  in
+  let mirror =
+    Set.filter_map
+      (module Pos)
+      part_to_mirror
+      ~f:(fun (i, j) ->
+        if min <= i && i <= max then Some (reflect_col (i, j) col_i) else None)
+  in
+  equal kind mirror side
 
 let find_col_reflection kind m =
   let _, _, imax, _ = bounds m in
