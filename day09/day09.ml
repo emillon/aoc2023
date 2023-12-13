@@ -7,7 +7,6 @@ let sample = [ "0 3 6 9 12 15"; "1 3 6 10 15 21"; "10 13 16 21 30 45" ]
 type t = int list list [@@deriving sexp]
 
 let parse_line s =
-  let open Angstrom_helpers in
   let signed_number =
     let open Angstrom in
     let+ minus = take_while (Char.equal '-') and+ number in

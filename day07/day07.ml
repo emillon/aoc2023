@@ -25,7 +25,6 @@ let hand_of_string s =
   String.to_list s |> List.map ~f:(fun c -> parse_card c |> Option.value_exn)
 
 let parse_line s =
-  let open Angstrom_helpers in
   let hand =
     let open Angstrom in
     let+ s = take_while1 (fun c -> Option.is_some (parse_card c)) in

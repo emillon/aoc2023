@@ -10,7 +10,6 @@ type t = race list [@@deriving sexp]
 
 let parse s =
   let open Angstrom in
-  let open Angstrom_helpers in
   let numbers =
     take_while1 Char.is_whitespace
     *> Angstrom.sep_by1 (Angstrom.take_while1 Char.is_whitespace) number

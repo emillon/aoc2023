@@ -82,7 +82,6 @@ let build_full_map prev_max ranges =
   (r, max)
 
 let parse s =
-  let open Angstrom_helpers in
   let empty_line =
     let open Angstrom in
     end_of_line *> end_of_line

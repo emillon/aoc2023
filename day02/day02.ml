@@ -37,7 +37,6 @@ let subset_from_components components =
       | `Blue -> { acc with blue = amount })
 
 let parse_line s =
-  let open Angstrom_helpers in
   let id = number in
   let color =
     let open Angstrom in

@@ -39,7 +39,6 @@ type line = { conditions : conditions; groups : int list }
 type t = line list [@@deriving sexp]
 
 let parse_line s =
-  let open Angstrom_helpers in
   let open Angstrom in
   let conditions =
     let+ s = take_till Char.is_whitespace <* char ' ' in

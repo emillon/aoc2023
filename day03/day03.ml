@@ -36,7 +36,6 @@ let union a b =
   { symbols = a.symbols @ b.symbols; numbers = a.numbers @ b.numbers }
 
 let parse_line i s =
-  let open Angstrom_helpers in
   let dot =
     let open Angstrom in
     char '.' <?> "dot"

@@ -16,7 +16,6 @@ type line = { winning : int list; have : int list } [@@deriving sexp]
 type t = line list [@@deriving sexp]
 
 let parse_line s =
-  let open Angstrom_helpers in
   let numbers =
     let open Angstrom in
     sep_by1 (take_while1 Char.is_whitespace) number
