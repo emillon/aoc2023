@@ -1,4 +1,5 @@
 open Base
+open Stdio
 
 let sum l = List.fold ~f:( + ) ~init:0 l
 let product l = List.fold ~f:( * ) ~init:1 l
@@ -14,3 +15,16 @@ module Angstrom_helpers = struct
      Int.of_string s)
     <?> "number"
 end
+
+type _ kind = All : string kind | Lines : string list kind
+
+let main (type i a) (kind : i kind) (parse : i -> a) result result2 =
+  let input path : i =
+    match kind with
+    | All -> In_channel.read_all path
+    | Lines -> In_channel.read_lines path
+  in
+  match Sys.get_argv () with
+  | [| _; path |] -> input path |> parse |> result |> printf "%d\n"
+  | [| _; "--2"; path |] -> input path |> parse |> result2 |> printf "%d\n"
+  | _ -> assert false

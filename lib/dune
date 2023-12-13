@@ -1,4 +1,4 @@
 (library
  (name lib)
  (public_name aoc2023.lib)
- (libraries angstrom base))
+ (libraries angstrom base stdio))

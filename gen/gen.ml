@@ -74,15 +74,7 @@ let generate_lib oc =
   outf oc {|  parse sample |> result2 |> printf "%%d\n";|};
   outf oc {x|  [%%expect {| 0 |}]|x};
   outf oc {||};
-  outf oc {|let run () =|};
-  outf oc {|  match Sys.get_argv () with|};
-  outf oc {|  | [| _; path |] ->|};
-  outf oc
-    {|      In_channel.read_all path |> parse |> result |> printf "%%d\n"|};
-  outf oc {|  | [| _; "--2"; path |] ->|};
-  outf oc
-    {|      In_channel.read_all path |> parse |> result2 |> printf "%%d\n"|};
-  outf oc {|  | _ -> assert false|}
+  outf oc {|let run () = main All parse result result2|}
 
 type data_file = { basename : string; write : Out_channel.t -> unit }
 

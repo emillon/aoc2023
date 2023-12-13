@@ -189,10 +189,4 @@ let%expect_test "result2" =
   test 100;
   [%expect {| 8410 |}]
 
-let run () =
-  match Sys.get_argv () with
-  | [| _; path |] ->
-      In_channel.read_all path |> parse |> result |> printf "%d\n"
-  | [| _; "--2"; path |] ->
-      In_channel.read_all path |> parse |> result2 |> printf "%d\n"
-  | _ -> assert false
+let run () = main All parse result result2
