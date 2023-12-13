@@ -36,8 +36,6 @@ let sexp_of_conditions l = conditions_to_string l |> [%sexp_of: string]
 type line = { conditions : conditions; groups : int list }
 [@@deriving compare, sexp]
 
-let conditions line = line.conditions
-
 type t = line list [@@deriving sexp]
 
 let parse_line s =
@@ -67,137 +65,6 @@ let%expect_test "parse" =
      ((conditions ????.######..#####.) (groups (1 6 5)))
      ((conditions ?###????????) (groups (3 2 1)))) |}]
 
-let values_for = function
-  | (Operational | Damaged) as c -> [ c ]
-  | Unknown -> [ Operational; Damaged ]
-
-let rec iter_values ~f = function
-  | [] -> f []
-  | c :: cs ->
-      let hs = values_for c in
-      iter_values cs ~f:(fun t -> List.iter hs ~f:(fun h -> f (h :: t)))
-
-let values_for_test l =
-  let r = ref [] in
-  iter_values l ~f:(fun x -> r := x :: !r);
-  List.rev !r
-
-let%expect_test "values" =
-  parse sample |> List.hd_exn |> conditions |> values_for_test
-  |> [%sexp_of: conditions list] |> print_s;
-  [%expect
-    {|
-    (....### #...### .#..### ##..### ..#.### #.#.### .##.### ###.###) |}]
-
-let group_match l expected =
-  let rec go state expected cs =
-    match (state, expected, cs) with
-    | _, _, Unknown :: _ -> assert false
-    | None, expected, Damaged :: cs -> go (Some 1) expected cs
-    | None, expected, Operational :: cs -> go None expected cs
-    | None, [], [] -> true
-    | None, _ :: _, [] -> false
-    | Some n, expected, Damaged :: cs -> go (Some (n + 1)) expected cs
-    | Some n, expected_n :: expected, Operational :: cs ->
-        expected_n = n && go None expected cs
-    | Some n, [ expected_n ], [] -> expected_n = n
-    | Some _, _ :: _ :: _, [] -> false
-    | Some _, [], Operational :: _ -> false
-    | Some _, [], [] -> false
-  in
-  go None expected l
-
-let map_head ~f = function [] -> [] | x :: xs -> f x :: xs
-
-let pairings t =
-  let rec go condition_groups groups =
-    match (condition_groups, groups) with
-    | [ conditions ], groups -> [ [ { conditions; groups } ] ]
-    | condition_groups, [] ->
-        [
-          List.map condition_groups ~f:(fun conditions ->
-              { conditions; groups = [] });
-        ]
-    | [], _ -> assert false
-    | condition_group :: condition_groups, group :: groups ->
-        (* does first group match first condition group? *)
-        (* a:
-           yes.
-           pair all condition groups with other groups and
-           add group to all beginnings.
-        *)
-        let a =
-          let r = go (condition_group :: condition_groups) groups in
-          List.map r ~f:(fun t ->
-              map_head t ~f:(fun line ->
-                  { line with groups = group :: line.groups }))
-        in
-        (* b: no.
-            pair other condition groups with all groups and
-            and add an empty match
-        *)
-        let b =
-          let r = go condition_groups (group :: groups) in
-          let first_group = { groups = []; conditions = condition_group } in
-          List.map r ~f:(fun l -> first_group :: l)
-        in
-        a @ b
-  in
-  let condition_groups =
-    let break a b =
-      match (a, b) with
-      | Operational, _ -> true
-      | _, Operational -> true
-      | _ -> false
-    in
-    List.group t.conditions ~break
-    |> List.filter ~f:(function [ Operational ] -> false | _ -> true)
-  in
-  if false then
-    print_s [%message "pairings" (condition_groups : conditions list)];
-  go condition_groups t.groups
-
-let%expect_test "pairings" =
-  let test s =
-    parse_line s |> pairings |> [%sexp_of: line list list] |> print_s
-  in
-  test "?.# 1,3";
-  [%expect
-    {|
-    ((((conditions ?) (groups (1 3))) ((conditions #) (groups ())))
-     (((conditions ?) (groups (1))) ((conditions #) (groups (3))))
-     (((conditions ?) (groups ())) ((conditions #) (groups (1 3))))) |}];
-  test "???????..??? 2,1,1";
-  [%expect
-    {|
-    ((((conditions ???????) (groups (2 1 1))) ((conditions ???) (groups ())))
-     (((conditions ???????) (groups (2 1))) ((conditions ???) (groups (1))))
-     (((conditions ???????) (groups (2))) ((conditions ???) (groups (1 1))))
-     (((conditions ???????) (groups ())) ((conditions ???) (groups (2 1 1))))) |}];
-  test "?.?.??.??? 1,3";
-  [%expect
-    {|
-    ((((conditions ?) (groups (1 3))) ((conditions ?) (groups ()))
-      ((conditions ??) (groups ())) ((conditions ???) (groups ())))
-     (((conditions ?) (groups (1))) ((conditions ?) (groups (3)))
-      ((conditions ??) (groups ())) ((conditions ???) (groups ())))
-     (((conditions ?) (groups (1))) ((conditions ?) (groups ()))
-      ((conditions ??) (groups (3))) ((conditions ???) (groups ())))
-     (((conditions ?) (groups (1))) ((conditions ?) (groups ()))
-      ((conditions ??) (groups ())) ((conditions ???) (groups (3))))
-     (((conditions ?) (groups ())) ((conditions ?) (groups (1 3)))
-      ((conditions ??) (groups ())) ((conditions ???) (groups ())))
-     (((conditions ?) (groups ())) ((conditions ?) (groups (1)))
-      ((conditions ??) (groups (3))) ((conditions ???) (groups ())))
-     (((conditions ?) (groups ())) ((conditions ?) (groups (1)))
-      ((conditions ??) (groups ())) ((conditions ???) (groups (3))))
-     (((conditions ?) (groups ())) ((conditions ?) (groups ()))
-      ((conditions ??) (groups (1 3))) ((conditions ???) (groups ())))
-     (((conditions ?) (groups ())) ((conditions ?) (groups ()))
-      ((conditions ??) (groups (1))) ((conditions ???) (groups (3))))
-     (((conditions ?) (groups ())) ((conditions ?) (groups ()))
-      ((conditions ??) (groups ())) ((conditions ???) (groups (1 3))))) |}]
-
 let expand_conditions l =
   List.concat
     [ l; [ Unknown ]; l; [ Unknown ]; l; [ Unknown ]; l; [ Unknown ]; l ]
@@ -209,27 +76,54 @@ let expand_line { conditions; groups } =
 
 let expand = List.map ~f:expand_line
 
-let result_line { conditions; groups } =
-  let go () =
-    let r = ref 0 in
-    iter_values conditions ~f:(fun l -> if group_match l groups then Int.incr r);
-    !r
-  in
-  let group_total = sum groups in
-  let maximum = List.length conditions in
-  if group_total > maximum then 0
-  else
-    let minimum =
-      List.count conditions ~f:(function Damaged -> true | _ -> false)
-    in
-    if group_total < minimum then 0 else go ()
+let result_line_new ~f { conditions; groups } =
+  match groups with
+  | [] -> if List.mem conditions Damaged ~equal:equal_condition then 0 else 1
+  | current :: groups ->
+      List.range 0
+        (List.length conditions - sum groups - List.length groups - current)
+        ~stop:`inclusive
+      |> List.take_while ~f:(fun i ->
+             not
+               (List.existsi conditions ~f:(fun j c ->
+                    match c with Damaged -> j < i | _ -> false)))
+      |> List.filter_map ~f:(fun i ->
+             let next = i + current in
+             if
+               next <= List.length conditions
+               && (not
+                     (List.existsi conditions ~f:(fun j c ->
+                          match c with
+                          | Operational -> i <= j && j < next
+                          | _ -> false)))
+               && not
+                    ([%equal: condition option] (List.nth conditions next)
+                       (Some Damaged))
+             then
+               Some (f { conditions = List.drop conditions (next + 1); groups })
+             else None)
+      |> sum
 
-let result_line_opt l =
-  pairings l
-  |> List.map ~f:(fun l -> List.map l ~f:result_line |> product)
-  |> sum
+module Line = struct
+  module T = struct
+    type t = line [@@deriving compare, sexp]
+  end
 
-let result l = List.map l ~f:result_line_opt |> sum
+  include T
+  include Comparable.Make (T)
+end
+
+let rec result_line_new_cached =
+  let cache = ref (Map.empty (module Line)) in
+  fun line ->
+    match Map.find !cache line with
+    | Some r -> r
+    | None ->
+        let data = result_line_new ~f:result_line_new_cached line in
+        cache := Map.add_exn !cache ~key:line ~data;
+        data
+
+let result l = List.map l ~f:result_line_new_cached |> sum
 
 let%expect_test "result" =
   parse sample |> result |> printf "%d\n";
@@ -257,13 +151,11 @@ let%expect_test "expand" =
        ?###??????????###??????????###??????????###??????????###????????)
       (groups (3 2 1 3 2 1 3 2 1 3 2 1 3 2 1)))) |}]
 
-(*let result2 t = expand t |> result*)
-
-let result2 _ = 0
+let result2 t = expand t |> result
 
 let%expect_test "result2" =
   parse sample |> result2 |> printf "%d\n";
-  [%expect {| 0 |}]
+  [%expect {| 525152 |}]
 
 let run () =
   match Sys.get_argv () with
