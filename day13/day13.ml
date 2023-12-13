@@ -108,7 +108,16 @@ let view m =
 
 let transpose = Set.map (module Pos) ~f:(fun (i, j) -> (j, i))
 
-let is_col_reflection m imax col_i =
+type equal_kind = Strict | Smudge
+
+let equal kind a b =
+  match kind with
+  | Strict -> Set.equal a b
+  | Smudge ->
+      let diff = Set.symmetric_diff a b in
+      Sequence.length diff = 1
+
+let is_col_reflection kind m imax col_i =
   (* i means i/i+1 act as mirror *)
   let left, right = Set.partition_tf m ~f:(fun (ri, _rj) -> ri <= col_i) in
   if 2 * col_i < imax - 1 then
@@ -121,7 +130,7 @@ let is_col_reflection m imax col_i =
             Some (reflect_col (i, j) col_i)
           else None)
     in
-    Set.equal mirror_of_left left
+    equal kind mirror_of_left left
   else
     let mirror_of_right =
       Set.filter_map
@@ -132,42 +141,44 @@ let is_col_reflection m imax col_i =
             Some (reflect_col (i, j) col_i)
           else None)
     in
-    Set.equal mirror_of_right right
+    equal kind mirror_of_right right
 
-let find_col_reflection m =
+let find_col_reflection kind m =
   let _, _, imax, _ = bounds m in
-  List.range 0 imax |> List.find ~f:(is_col_reflection m imax)
+  List.range 0 imax |> List.find ~f:(is_col_reflection kind m imax)
 
-let find_row_reflection m = m |> transpose |> find_col_reflection
+let find_row_reflection kind m = m |> transpose |> find_col_reflection kind
 
-let find_reflection m =
-  match find_col_reflection m with
+let find_reflection kind m =
+  match find_col_reflection kind m with
   | Some n -> Some (Col n)
   | None ->
-      let%map.Option n = find_row_reflection m in
+      let%map.Option n = find_row_reflection kind m in
       Row n
 
 let%expect_test "find_reflection" =
   parse sample
-  |> List.map ~f:find_reflection
+  |> List.map ~f:(find_reflection Strict)
   |> [%sexp_of: reflection option list] |> print_s;
   [%expect {| (((Col 4)) ((Row 3))) |}]
 
 let score = function Col n -> n + 1 | Row n -> 100 * (n + 1)
 
-let result (l : t) =
+let result_gen l kind =
   l
-  |> List.map ~f:(fun m -> find_reflection m |> Option.value_exn |> score)
+  |> List.map ~f:(fun m -> find_reflection kind m |> Option.value_exn |> score)
   |> sum
+
+let result l = result_gen l Strict
 
 let%expect_test "result" =
   parse sample |> result |> printf "%d\n";
   [%expect {| 405 |}]
 
-let result2 _ = 0
+let result2 l = result_gen l Smudge
 
 let%expect_test "result2" =
   parse sample |> result2 |> printf "%d\n";
-  [%expect {| 0 |}]
+  [%expect {| 400 |}]
 
 let run () = main All parse result result2
