@@ -35,18 +35,14 @@ let empty = { symbols = []; numbers = [] }
 let union a b =
   { symbols = a.symbols @ b.symbols; numbers = a.numbers @ b.numbers }
 
-let parse_line i s =
-  let dot =
-    let open Angstrom in
-    char '.' <?> "dot"
-  in
+let parse_line i =
+  let open Angstrom in
+  let dot = char '.' <?> "dot" in
   let symbol =
-    let open Angstrom in
     satisfy (function '.' -> false | '0' .. '9' -> false | _ -> true)
     <?> "symbol"
   in
   let element =
-    let open Angstrom in
     choice
       [
         (let* left = pos in
@@ -66,7 +62,6 @@ let parse_line i s =
     <?> "element"
   in
   let line =
-    let open Angstrom in
     let+ elements = many1 element <?> "elements" in
     List.fold elements ~init:empty ~f:(fun acc element ->
         match element with
@@ -74,7 +69,7 @@ let parse_line i s =
         | `Symbol s -> { acc with symbols = s :: acc.symbols }
         | `Dots -> acc)
   in
-  Angstrom.parse_string ~consume:All line s |> Result.ok_or_failwith
+  parse line
 
 let parse lines =
   List.foldi lines ~init:empty ~f:(fun i acc line ->

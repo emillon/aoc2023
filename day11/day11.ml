@@ -28,9 +28,9 @@ end
 
 type t = Set.M(Pos).t [@@deriving sexp]
 
-let parse s =
+let parse =
+  let open Angstrom in
   let symbol =
-    let open Angstrom in
     let+ pos
     and+ symbol =
       choice [ char '.' *> return false; char '#' *> return true ]
@@ -38,13 +38,11 @@ let parse s =
     (symbol, pos)
   in
   let line =
-    let open Angstrom in
     let+ s = many1 symbol <* end_of_line in
     ( List.filter_map s ~f:(fun (ok, pos) -> Option.some_if ok pos),
       List.length s )
   in
   let map =
-    let open Angstrom in
     let+ ll = many1 line in
     let width = (List.hd_exn ll |> snd) + 1 in
     let off_to_pos off = (off % width, off / width) in
@@ -52,7 +50,7 @@ let parse s =
     |> List.map ~f:(fun off -> off_to_pos off)
     |> Set.of_list (module Pos)
   in
-  Angstrom.parse_string ~consume:All map s |> Result.ok_or_failwith
+  parse map
 
 let%expect_test "parse" =
   parse sample |> [%sexp_of: t] |> print_s;

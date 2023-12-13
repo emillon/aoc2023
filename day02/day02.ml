@@ -36,10 +36,10 @@ let subset_from_components components =
       | `Green -> { acc with green = amount }
       | `Blue -> { acc with blue = amount })
 
-let parse_line s =
+let parse_line =
+  let open Angstrom in
   let id = number in
   let color =
-    let open Angstrom in
     choice
       [
         (let+ _ = string "red" in
@@ -51,25 +51,22 @@ let parse_line s =
       ]
   in
   let component =
-    let open Angstrom in
     (let+ amount = number <* string " " and+ color in
      (color, amount))
     <?> "component"
   in
   let subset =
-    let open Angstrom in
     (let+ components = sep_by (string ", ") component in
      subset_from_components components)
     <?> "subset"
   in
   let line =
-    let open Angstrom in
     (let+ id = string "Game " *> id <* string ": "
      and+ subsets = sep_by (string "; ") subset in
      { id; subsets })
     <?> "line"
   in
-  Angstrom.parse_string ~consume:All line s |> Result.ok_or_failwith
+  parse line
 
 let parse lines = List.map ~f:parse_line lines
 

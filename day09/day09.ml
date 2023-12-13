@@ -6,17 +6,14 @@ let sample = [ "0 3 6 9 12 15"; "1 3 6 10 15 21"; "10 13 16 21 30 45" ]
 
 type t = int list list [@@deriving sexp]
 
-let parse_line s =
+let parse_line =
+  let open Angstrom in
   let signed_number =
-    let open Angstrom in
     let+ minus = take_while (Char.equal '-') and+ number in
     match minus with "-" -> -number | "" -> number | _ -> assert false
   in
-  let line =
-    let open Angstrom in
-    sep_by1 (char ' ') signed_number
-  in
-  Angstrom.parse_string ~consume:All line s |> Result.ok_or_failwith
+  let line = sep_by1 (char ' ') signed_number in
+  parse line
 
 let parse = List.map ~f:parse_line
 

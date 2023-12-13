@@ -54,9 +54,9 @@ let connected_dirs =
 
 let symbol_connects sym dir = List.mem (connected_dirs sym) dir ~equal:Dir.equal
 
-let parse s =
+let parse =
+  let open Angstrom in
   let symbol =
-    let open Angstrom in
     let+ pos
     and+ symbol =
       choice
@@ -74,12 +74,10 @@ let parse s =
     Option.map symbol ~f:(fun s -> (s, pos))
   in
   let line =
-    let open Angstrom in
     let+ s = many1 symbol <* end_of_line in
     (List.filter_opt s, List.length s)
   in
   let map =
-    let open Angstrom in
     let+ ll = many1 line in
     let width = (List.hd_exn ll |> snd) + 1 in
     let off_to_pos off = (off % width, off / width) in
@@ -87,7 +85,7 @@ let parse s =
     |> List.map ~f:(fun (sym, off) -> (off_to_pos off, sym))
     |> Map.of_alist_exn (module Pos)
   in
-  Angstrom.parse_string ~consume:All map s |> Result.ok_or_failwith
+  parse map
 
 let%expect_test "parse" =
   let test s = parse s |> [%sexp_of: t] |> print_s in

@@ -26,3 +26,5 @@ let main (type i a) (kind : i kind) (parse : i -> a) result result2 =
   | [| _; path |] -> input path |> parse |> result |> printf "%d\n"
   | [| _; "--2"; path |] -> input path |> parse |> result2 |> printf "%d\n"
   | _ -> assert false
+
+let parse p s = Angstrom.parse_string ~consume:All p s |> Result.ok_or_failwith

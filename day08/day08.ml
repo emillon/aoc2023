@@ -20,33 +20,23 @@ type move = L | R [@@deriving sexp]
 type node = { left : string; right : string } [@@deriving sexp]
 type t = { moves : move list; nodes : node Map.M(String).t } [@@deriving sexp]
 
-let parse s =
-  let move =
-    let open Angstrom in
-    choice [ char 'L' *> return L; char 'R' *> return R ]
-  in
-  let moves =
-    let open Angstrom in
-    many1 move <* end_of_line <* end_of_line
-  in
-  let name =
-    let open Angstrom in
-    take_while Char.is_alphanum
-  in
+let parse =
+  let open Angstrom in
+  let move = choice [ char 'L' *> return L; char 'R' *> return R ] in
+  let moves = many1 move <* end_of_line <* end_of_line in
+  let name = take_while Char.is_alphanum in
   let node =
-    let open Angstrom in
     let+ pos = name <* string " = ("
     and+ left = name <* string ", "
     and+ right = name <* string ")" <* end_of_line in
     (pos, { left; right })
   in
   let t =
-    let open Angstrom in
     let+ moves and+ node_list = many node in
     let nodes = Map.of_alist_exn (module String) node_list in
     { moves; nodes }
   in
-  Angstrom.parse_string ~consume:All t s |> Result.ok_or_failwith
+  parse t
 
 let%expect_test "parse" =
   parse sample |> [%sexp_of: t] |> print_s;

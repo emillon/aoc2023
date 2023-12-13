@@ -7,3 +7,4 @@ val number : int Angstrom.t
 type _ kind = All : string kind | Lines : string list kind
 
 val main : 'i kind -> ('i -> 'a) -> ('a -> int) -> ('a -> int) -> unit
+val parse : 'a Angstrom.t -> string -> 'a

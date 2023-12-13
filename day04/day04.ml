@@ -15,13 +15,10 @@ let sample =
 type line = { winning : int list; have : int list } [@@deriving sexp]
 type t = line list [@@deriving sexp]
 
-let parse_line s =
-  let numbers =
-    let open Angstrom in
-    sep_by1 (take_while1 Char.is_whitespace) number
-  in
+let parse_line =
+  let open Angstrom in
+  let numbers = sep_by1 (take_while1 Char.is_whitespace) number in
   let line =
-    let open Angstrom in
     let+ winning =
       string "Card"
       *> take_while1 Char.is_whitespace
@@ -31,7 +28,7 @@ let parse_line s =
     and+ have = string " |" *> take_while1 Char.is_whitespace *> numbers in
     { winning; have }
   in
-  Angstrom.parse_string ~consume:All line s |> Result.ok_or_failwith
+  parse line
 
 let parse lines = List.map ~f:parse_line lines
 

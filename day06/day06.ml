@@ -8,7 +8,7 @@ let sample =
 type race = { time : int; distance : int } [@@deriving sexp]
 type t = race list [@@deriving sexp]
 
-let parse s =
+let parse =
   let open Angstrom in
   let numbers =
     take_while1 Char.is_whitespace
@@ -21,7 +21,7 @@ let parse s =
     List.zip_exn time_line distance_line
     |> List.map ~f:(fun (time, distance) -> { time; distance })
   in
-  Angstrom.parse_string ~consume:All input s |> Result.ok_or_failwith
+  parse input
 
 let%expect_test "parser" =
   parse sample |> [%sexp_of: t] |> print_s;

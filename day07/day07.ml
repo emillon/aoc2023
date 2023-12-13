@@ -24,18 +24,17 @@ let parse_card = function
 let hand_of_string s =
   String.to_list s |> List.map ~f:(fun c -> parse_card c |> Option.value_exn)
 
-let parse_line s =
+let parse_line =
+  let open Angstrom in
   let hand =
-    let open Angstrom in
     let+ s = take_while1 (fun c -> Option.is_some (parse_card c)) in
     hand_of_string s
   in
   let line =
-    let open Angstrom in
     let+ hand and+ bid = char ' ' *> number in
     { hand; bid }
   in
-  Angstrom.parse_string ~consume:All line s |> Result.ok_or_failwith
+  parse line
 
 let parse l = List.map l ~f:parse_line
 

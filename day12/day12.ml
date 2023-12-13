@@ -38,7 +38,7 @@ type line = { conditions : conditions; groups : int list }
 
 type t = line list [@@deriving sexp]
 
-let parse_line s =
+let parse_line =
   let open Angstrom in
   let conditions =
     let+ s = take_till Char.is_whitespace <* char ' ' in
@@ -49,7 +49,7 @@ let parse_line s =
     let+ conditions and+ groups in
     { conditions; groups }
   in
-  parse_string ~consume:All line s |> Result.ok_or_failwith
+  parse line
 
 let parse = List.map ~f:parse_line
 

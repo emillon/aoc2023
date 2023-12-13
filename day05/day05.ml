@@ -81,24 +81,17 @@ let build_full_map prev_max ranges =
   in
   (r, max)
 
-let parse s =
-  let empty_line =
-    let open Angstrom in
-    end_of_line *> end_of_line
-  in
-  let seeds =
-    let open Angstrom in
-    string "seeds: " *> sep_by1 (char ' ') number
-  in
+let parse =
+  let open Angstrom in
+  let empty_line = end_of_line *> end_of_line in
+  let seeds = string "seeds: " *> sep_by1 (char ' ') number in
   let range =
-    let open Angstrom in
     let+ dst_start = number <* char ' '
     and+ src_start = number <* char ' '
     and+ length = number in
     { dst_start; src_start; length }
   in
   let parse_map =
-    let open Angstrom in
     let+ map =
       take_till Char.is_whitespace
       *> string " map:" *> end_of_line *> sep_by1 end_of_line range
@@ -106,7 +99,6 @@ let parse s =
     map
   in
   let file =
-    let open Angstrom in
     let+ seeds = seeds <* empty_line
     and+ maps = sep_by1 empty_line parse_map <* end_of_line in
     let maps, _ =
@@ -116,7 +108,7 @@ let parse s =
     in
     { seeds; maps = List.rev maps }
   in
-  Angstrom.parse_string ~consume:All file s |> Result.ok_or_failwith
+  parse file
 
 let%expect_test "build_full_map" =
   build_full_map 0
