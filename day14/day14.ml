@@ -106,12 +106,12 @@ let step dir bounds t =
     (module Pos)
     t
     ~f:(fun p ->
-      let dst = shift p dir in
-      if is_in_bounds bounds dst then
-        match Map.find t p with
-        | None | Some Cube -> p
-        | Some Rock -> if Map.mem t dst then p else dst
-      else p)
+      match Map.find_exn t p with
+      | Cube -> p
+      | Rock ->
+          let dst = shift p dir in
+          if is_in_bounds bounds dst then if Map.mem t dst then p else dst
+          else p)
 
 let%expect_test "step" =
   let t = parse sample in
