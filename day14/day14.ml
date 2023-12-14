@@ -17,8 +17,8 @@ let sample =
   ]
   |> String.concat_lines
 
-type rock = Cube | Rock [@@deriving equal, sexp]
-type t = rock Map.M(Pos).t [@@deriving equal, sexp]
+type rock = Cube | Rock [@@deriving compare, equal, sexp]
+type t = rock Map.M(Pos).t [@@deriving compare, equal, sexp]
 
 let parse =
   let open Angstrom in
@@ -90,21 +90,32 @@ let%expect_test "parse" =
     #....###..
     #OO..#.... |}]
 
-let step t =
+type dir = N | S | E | W
+
+let shift (i, j) = function
+  | N -> (i, j - 1)
+  | S -> (i, j + 1)
+  | W -> (i - 1, j)
+  | E -> (i + 1, j)
+
+let is_in_bounds (imax, jmax) (i, j) =
+  0 <= i && i <= imax && 0 <= j && j <= jmax
+
+let step dir bounds t =
   Map.map_keys_exn
     (module Pos)
     t
-    ~f:(fun (i, j) ->
-      if j = 0 then (i, j)
-      else
-        match Map.find t (i, j) with
-        | None | Some Cube -> (i, j)
-        | Some Rock ->
-            let north = (i, j - 1) in
-            if Map.mem t north then (i, j) else north)
+    ~f:(fun p ->
+      let dst = shift p dir in
+      if is_in_bounds bounds dst then
+        match Map.find t p with
+        | None | Some Cube -> p
+        | Some Rock -> if Map.mem t dst then p else dst
+      else p)
 
 let%expect_test "step" =
-  parse sample |> step |> view;
+  let t = parse sample in
+  t |> step N (bounds t) |> view;
   [%expect
     {|
     O.OO.#....
@@ -122,10 +133,12 @@ let rec fixpoint ~equal ~f x =
   let y = f x in
   if equal x y then x else fixpoint ~equal ~f y
 
-let move_all = fixpoint ~f:step ~equal:[%equal: t]
+let move_all dir t =
+  let bounds = bounds t in
+  fixpoint ~f:(step dir bounds) ~equal:[%equal: t] t
 
 let%expect_test "move_all" =
-  parse sample |> move_all |> view;
+  parse sample |> move_all N |> view;
   [%expect
     {|
     OOOO.#.O..
@@ -139,21 +152,106 @@ let%expect_test "move_all" =
     #....###..
     #....#.... |}]
 
-let result t =
-  let _imax, jmax = bounds t in
-  let moved = move_all t in
+let load bounds t =
+  let _, jmax = bounds in
   let score_for_row j = jmax - j + 1 in
-  Map.fold moved ~init:0 ~f:(fun ~key:(_i, j) ~data acc ->
+  Map.fold t ~init:0 ~f:(fun ~key:(_i, j) ~data acc ->
       match data with Cube -> acc | Rock -> acc + score_for_row j)
+
+let result t =
+  let bounds = bounds t in
+  let moved = move_all N t in
+  load bounds moved
 
 let%expect_test "result" =
   parse sample |> result |> printf "%d\n";
   [%expect {| 136 |}]
 
-let result2 _ = 0
+let one_cycle t = t |> move_all N |> move_all W |> move_all S |> move_all E
+
+let%expect_test "one_cycle" =
+  let r = ref (parse sample) in
+  let go () =
+    r := one_cycle !r;
+    view !r
+  in
+  go ();
+  [%expect
+    {|
+    .....#....
+    ....#...O#
+    ...OO##...
+    .OO#......
+    .....OOO#.
+    .O#...O#.#
+    ....O#....
+    ......OOOO
+    #...O###..
+    #..OO#.... |}];
+  go ();
+  [%expect
+    {|
+    .....#....
+    ....#...O#
+    .....##...
+    ..O#......
+    .....OOO#.
+    .O#...O#.#
+    ....O#...O
+    .......OOO
+    #..OO###..
+    #.OOO#...O |}];
+  go ();
+  [%expect
+    {|
+    .....#....
+    ....#...O#
+    .....##...
+    ..O#......
+    .....OOO#.
+    .O#...O#.#
+    ....O#...O
+    .......OOO
+    #...O###.O
+    #.OOO#...O |}]
+
+module State = struct
+  module T = struct
+    type nonrec t = t [@@deriving compare, sexp]
+  end
+
+  include T
+  include Comparable.Make (T)
+end
+
+let cycle_values t0 =
+  let rec go t m n =
+    match Map.find m t with
+    | Some old_n -> (old_n, m)
+    | None ->
+        let new_m = Map.add_exn m ~key:t ~data:n in
+        go (one_cycle t) new_m (n + 1)
+  in
+  go t0 (Map.empty (module State)) 0
+
+let%expect_test "cyclic_values" =
+  let n, m = parse sample |> cycle_values in
+  (Map.length m, n) |> [%sexp_of: int * int] |> print_s;
+  [%expect {| (10 3) |}]
+
+let result2 t =
+  let bounds = bounds t in
+  let n, values = cycle_values t in
+  let values_len = Map.length values in
+  let modulus = values_len - n in
+  let modulo = (1000000000 - n) % modulus in
+  let bucket = n + modulo in
+  Map.to_alist values
+  |> List.find_exn ~f:(fun (_v, k) -> k = bucket)
+  |> fst |> load bounds
 
 let%expect_test "result2" =
   parse sample |> result2 |> printf "%d\n";
-  [%expect {| 0 |}]
+  [%expect {| 64 |}]
 
 let run () = main All parse result result2
