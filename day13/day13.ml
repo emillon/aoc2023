@@ -22,15 +22,6 @@ let sample =
   ]
   |> String.concat_lines
 
-module Pos = struct
-  module T = struct
-    type t = int * int [@@deriving compare, sexp]
-  end
-
-  include T
-  include Comparable.Make (T)
-end
-
 type map = Set.M(Pos).t [@@deriving sexp]
 type t = map list [@@deriving sexp]
 

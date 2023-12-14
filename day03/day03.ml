@@ -16,10 +16,6 @@ let sample =
     ".664.598..";
   ]
 
-module Pos = struct
-  type t = int * int [@@deriving sexp]
-end
-
 module Number = struct
   type t = { value : int; left : Pos.t; right : Pos.t } [@@deriving sexp]
 end

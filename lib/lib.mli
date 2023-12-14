@@ -1,3 +1,5 @@
+open Base
+
 val sum : int list -> int
 val product : int list -> int
 val fold1 : f:('a -> 'a -> 'a) -> 'a list -> 'a
@@ -8,3 +10,9 @@ type _ kind = All : string kind | Lines : string list kind
 
 val main : 'i kind -> ('i -> 'a) -> ('a -> int) -> ('a -> int) -> unit
 val parse : 'a Angstrom.t -> string -> 'a
+
+module Pos : sig
+  type t = int * int [@@deriving sexp]
+
+  include Comparable.S with type t := t
+end

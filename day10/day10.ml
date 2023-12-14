@@ -21,22 +21,13 @@ module Dir = struct
   let all = [ N; E; S; W ]
 end
 
-module Pos = struct
-  module T = struct
-    type t = int * int [@@deriving compare, sexp]
-  end
+let shift (i, j) =
+  let open Dir in
+  function
+  | N -> (i, j - 1) | S -> (i, j + 1) | E -> (i + 1, j) | W -> (i - 1, j)
 
-  include T
-  include Comparable.Make (T)
-
-  let shift (i, j) =
-    let open Dir in
-    function
-    | N -> (i, j - 1) | S -> (i, j + 1) | E -> (i + 1, j) | W -> (i - 1, j)
-
-  let neighbours (i, j) : (t * Dir.t) list =
-    [ ((i, j + 1), S); ((i + 1, j), W); ((i, j - 1), N); ((i - 1, j), E) ]
-end
+let neighbours (i, j) : (Pos.t * Dir.t) list =
+  [ ((i, j + 1), S); ((i + 1, j), W); ((i, j - 1), N); ((i - 1, j), E) ]
 
 type sym = NS | EW | NE | NW | SW | SE | Start [@@deriving sexp]
 type t = sym Map.M(Pos).t [@@deriving sexp]
@@ -124,7 +115,7 @@ let find_all_neighbours t pos =
   let sym = Map.find_exn t pos in
   let connected_dirs = connected_dirs sym in
   List.map Dir.all ~f:(fun dir ->
-      let new_pos = Pos.shift pos dir in
+      let new_pos = shift pos dir in
       let ok =
         if List.mem connected_dirs dir ~equal:Dir.equal then
           match Map.find t new_pos with
@@ -378,7 +369,7 @@ let result2 t =
       else if Set.mem loop pos then ()
       else (
         filled := Set.add !filled pos;
-        let neighbours = Pos.neighbours pos |> List.map ~f:fst in
+        let neighbours = neighbours pos |> List.map ~f:fst in
         Queue.enqueue_all q neighbours)
     else ()
   done;

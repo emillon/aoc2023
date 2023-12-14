@@ -28,3 +28,12 @@ let main (type i a) (kind : i kind) (parse : i -> a) result result2 =
   | _ -> assert false
 
 let parse p s = Angstrom.parse_string ~consume:All p s |> Result.ok_or_failwith
+
+module Pos = struct
+  module T = struct
+    type t = int * int [@@deriving compare, sexp]
+  end
+
+  include T
+  include Comparable.Make (T)
+end

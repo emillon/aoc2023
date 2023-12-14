@@ -1,4 +1,6 @@
 (library
  (name lib)
  (public_name aoc2023.lib)
- (libraries angstrom base stdio))
+ (libraries angstrom base stdio)
+ (preprocess
+  (pps ppx_jane)))
