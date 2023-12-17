@@ -129,10 +129,12 @@ let next m { State.pos; dir } =
   let go dir = { State.pos = shift pos dir; dir } in
   List.map ~f:go dirs
 
-let energize m =
+let start_p1 = { State.pos = (0, 0); dir = E }
+
+let energize start m =
   let bounds = bounds m in
-  let q = Queue.create () in
-  Queue.enqueue q { State.pos = (0, 0); dir = E };
+  let q : State.t Queue.t = Queue.create () in
+  Queue.enqueue q start;
   let visited = ref (Set.empty (module State)) in
   while not (Queue.is_empty q) do
     let s = Queue.dequeue_exn q in
@@ -162,7 +164,7 @@ let view s =
   done
 
 let%expect_test "energize" =
-  parse sample |> energize |> view;
+  parse sample |> energize start_p1 |> view;
   [%expect
     {|
     ######....
@@ -176,16 +178,29 @@ let%expect_test "energize" =
     .#######..
     .#...#.#.. |}]
 
-let result m = energize m |> Set.length
+let result m = energize start_p1 m |> Set.length
 
 let%expect_test "result" =
   parse sample |> result |> printf "%d\n";
   [%expect {| 46 |}]
 
-let result2 _ = 0
+let initial_states m =
+  let imax, jmax = bounds m in
+  (List.range 0 imax ~stop:`inclusive
+  |> List.concat_map ~f:(fun i ->
+         [ { State.pos = (i, 0); dir = S }; { pos = (i, jmax); dir = N } ]))
+  @ (List.range 0 jmax ~stop:`inclusive
+    |> List.concat_map ~f:(fun j ->
+           [ { State.pos = (0, j); dir = E }; { pos = (imax, j); dir = W } ]))
+
+let result2 m =
+  initial_states m
+  |> List.map ~f:(fun s -> energize s m |> Set.length)
+  |> List.max_elt ~compare:Int.compare
+  |> Option.value_exn
 
 let%expect_test "result2" =
   parse sample |> result2 |> printf "%d\n";
-  [%expect {| 0 |}]
+  [%expect {| 51 |}]
 
 let run () = main All parse result result2
