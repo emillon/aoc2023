@@ -51,9 +51,12 @@ module Map2d = struct
       let+ s = many1 symbol <* end_of_line in
       (List.filter_opt s, List.length s)
     in
-    let+ ll = many1 line in
+    let+ pos_start = pos and+ ll = many1 line in
     let width = (List.hd_exn ll |> snd) + 1 in
-    let off_to_pos off = (off % width, off / width) in
+    let off_to_pos off =
+      let off = off - pos_start in
+      (off % width, off / width)
+    in
     List.concat_map ~f:fst ll
     |> List.map ~f:(fun (sym, off) -> (off_to_pos off, sym))
     |> Map.of_alist_exn (module Pos)

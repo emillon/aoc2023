@@ -22,51 +22,33 @@ let sample =
   ]
   |> String.concat_lines
 
-type map = Set.M(Pos).t [@@deriving sexp]
+type map = unit Map2d.t [@@deriving sexp]
 type t = map list [@@deriving sexp]
 
 let parse =
   let open Angstrom in
-  let symbol =
-    let+ pos
-    and+ symbol =
-      choice [ char '.' *> return false; char '#' *> return true ]
-    in
-    (symbol, pos)
-  in
-  let line =
-    let+ s = many1 symbol <* end_of_line in
-    ( List.filter_map s ~f:(fun (ok, pos) -> Option.some_if ok pos),
-      List.length s )
-  in
-  let map =
-    let+ pos_start = pos and+ ll = many1 line in
-    let width = (List.hd_exn ll |> snd) + 1 in
-    let off_to_pos off =
-      let off = off - pos_start in
-      (off % width, off / width)
-    in
-    List.concat_map ~f:fst ll
-    |> List.map ~f:(fun off -> off_to_pos off)
-    |> Set.of_list (module Pos)
-  in
-  let input = sep_by end_of_line map in
-  parse input
+  choice [ char '.' *> return None; char '#' *> return (Some ()) ]
+  |> Map2d.parse |> sep_by end_of_line |> parse
 
 let%expect_test "parse" =
   parse sample |> [%sexp_of: t] |> print_s;
   [%expect
     {|
-    (((0 0) (0 2) (0 3) (0 6) (1 2) (1 3) (2 0) (2 1) (2 4) (2 5) (2 6) (3 0)
-      (3 5) (4 1) (4 4) (4 6) (5 1) (5 4) (5 6) (6 0) (6 5) (7 0) (7 1) (7 4)
-      (7 5) (7 6) (8 2) (8 3))
-     ((0 0) (0 1) (0 3) (0 4) (0 6) (1 3) (1 4) (2 2) (2 3) (2 4) (2 5) (3 2)
-      (3 3) (3 4) (3 5) (4 0) (4 3) (4 4) (5 0) (5 1) (5 6) (6 2) (6 3) (6 4)
-      (6 5) (7 2) (7 3) (7 4) (7 5) (8 0) (8 1) (8 2) (8 5) (8 6))) |}]
+    ((((0 0) ()) ((0 2) ()) ((0 3) ()) ((0 6) ()) ((1 2) ()) ((1 3) ())
+      ((2 0) ()) ((2 1) ()) ((2 4) ()) ((2 5) ()) ((2 6) ()) ((3 0) ())
+      ((3 5) ()) ((4 1) ()) ((4 4) ()) ((4 6) ()) ((5 1) ()) ((5 4) ())
+      ((5 6) ()) ((6 0) ()) ((6 5) ()) ((7 0) ()) ((7 1) ()) ((7 4) ())
+      ((7 5) ()) ((7 6) ()) ((8 2) ()) ((8 3) ()))
+     (((0 0) ()) ((0 1) ()) ((0 3) ()) ((0 4) ()) ((0 6) ()) ((1 3) ())
+      ((1 4) ()) ((2 2) ()) ((2 3) ()) ((2 4) ()) ((2 5) ()) ((3 2) ())
+      ((3 3) ()) ((3 4) ()) ((3 5) ()) ((4 0) ()) ((4 3) ()) ((4 4) ())
+      ((5 0) ()) ((5 1) ()) ((5 6) ()) ((6 2) ()) ((6 3) ()) ((6 4) ())
+      ((6 5) ()) ((7 2) ()) ((7 3) ()) ((7 4) ()) ((7 5) ()) ((8 0) ())
+      ((8 1) ()) ((8 2) ()) ((8 5) ()) ((8 6) ()))) |}]
 
 let bounds =
-  Set.fold ~init:(Int.max_value, Int.max_value, Int.min_value, Int.min_value)
-    ~f:(fun (min_i, min_j, max_i, max_j) (i, j) ->
+  Map.fold ~init:(Int.max_value, Int.max_value, Int.min_value, Int.min_value)
+    ~f:(fun ~key:(i, j) ~data:_ (min_i, min_j, max_i, max_j) ->
       (Int.min i min_i, Int.min j min_j, Int.max i max_i, Int.max j max_j))
 
 type reflection = Col of int | Row of int [@@deriving sexp]
@@ -92,35 +74,39 @@ let view m =
   let imin, jmin, imax, jmax = bounds m in
   for j = jmin to jmax do
     for i = imin to imax do
-      if Set.mem m (i, j) then printf "#" else printf "."
+      if Map.mem m (i, j) then printf "#" else printf "."
     done;
     printf "\n"
   done
 
-let transpose = Set.map (module Pos) ~f:(fun (i, j) -> (j, i))
+let transpose = Map.map_keys_exn (module Pos) ~f:(fun (i, j) -> (j, i))
 
 type equal_kind = Strict | Smudge
 
 let equal kind a b =
   match kind with
-  | Strict -> Set.equal a b
+  | Strict -> Map.equal [%equal: unit] a b
   | Smudge ->
-      let diff = Set.symmetric_diff a b in
-      Sequence.length diff = 1
+      Map.symmetric_diff ~data_equal:[%equal: unit] a b
+      |> Sequence.length_is_bounded_by ~min:1 ~max:1
 
 let is_col_reflection kind m imax col_i =
   (* i means i/i+1 act as mirror *)
-  let left, right = Set.partition_tf m ~f:(fun (ri, _rj) -> ri <= col_i) in
+  let left, right =
+    Map.partitioni_tf m ~f:(fun ~key:(ri, _rj) ~data:_ -> ri <= col_i)
+  in
   let part_to_mirror, side, min, max =
     if 2 * col_i < imax - 1 then (right, left, col_i + 1, (2 * col_i) + 1)
     else (left, right, (2 * col_i) - imax + 1, col_i)
   in
   let mirror =
-    Set.filter_map
-      (module Pos)
-      part_to_mirror
-      ~f:(fun (i, j) ->
-        if min <= i && i <= max then Some (reflect_col (i, j) col_i) else None)
+    Map.fold part_to_mirror
+      ~init:(Map.empty (module Pos))
+      ~f:(fun ~key:(i, j) ~data acc ->
+        if min <= i && i <= max then
+          let new_key = reflect_col (i, j) col_i in
+          Map.add_exn acc ~key:new_key ~data
+        else acc)
   in
   equal kind mirror side
 

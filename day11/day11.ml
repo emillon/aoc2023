@@ -17,38 +17,25 @@ let sample =
   ]
   |> String.concat_lines
 
-type t = Set.M(Pos).t [@@deriving sexp]
+type t = unit Map2d.t [@@deriving sexp]
 
 let parse =
   let open Angstrom in
   let symbol =
-    let+ pos
-    and+ symbol =
-      choice [ char '.' *> return false; char '#' *> return true ]
-    in
-    (symbol, pos)
+    choice [ char '.' *> return None; char '#' *> return (Some ()) ]
   in
-  let line =
-    let+ s = many1 symbol <* end_of_line in
-    ( List.filter_map s ~f:(fun (ok, pos) -> Option.some_if ok pos),
-      List.length s )
-  in
-  let map =
-    let+ ll = many1 line in
-    let width = (List.hd_exn ll |> snd) + 1 in
-    let off_to_pos off = (off % width, off / width) in
-    List.concat_map ~f:fst ll
-    |> List.map ~f:(fun off -> off_to_pos off)
-    |> Set.of_list (module Pos)
-  in
-  parse map
+  parse (Map2d.parse symbol)
 
 let%expect_test "parse" =
   parse sample |> [%sexp_of: t] |> print_s;
-  [%expect {| ((0 2) (0 9) (1 5) (3 0) (4 9) (6 4) (7 1) (7 8) (9 6)) |}]
+  [%expect
+    {|
+    (((0 2) ()) ((0 9) ()) ((1 5) ()) ((3 0) ()) ((4 9) ()) ((6 4) ()) ((7 1) ())
+     ((7 8) ()) ((9 6) ())) |}]
 
 let bounds =
-  Set.fold ~init:(Int.min_value, Int.min_value) ~f:(fun (i, j) (max_i, max_j) ->
+  Map.fold ~init:(Int.min_value, Int.min_value)
+    ~f:(fun ~key:(i, j) ~data:_ (max_i, max_j) ->
       (Int.max i max_i, Int.max j max_j))
 
 let empty_columns t =
@@ -57,7 +44,7 @@ let empty_columns t =
   let is_column_empty i =
     let ok = ref true in
     for j = 0 to jmax do
-      if Set.mem t (i, j) then ok := false
+      if Map.mem t (i, j) then ok := false
     done;
     !ok
   in
@@ -72,7 +59,7 @@ let empty_rows t =
   let is_row_empty j =
     let ok = ref true in
     for i = 0 to imax do
-      if Set.mem t (i, j) then ok := false
+      if Map.mem t (i, j) then ok := false
     done;
     !ok
   in
@@ -90,7 +77,7 @@ let%expect_test "is_empty_row" =
   [%expect {| (7 3) |}]
 
 let add_row ~factor t row =
-  Set.map
+  Map.map_keys_exn
     (module Pos)
     t
     ~f:(fun (i, j) ->
@@ -100,7 +87,7 @@ let add_row ~factor t row =
 let add_empty_rows ~factor rows t = List.fold rows ~init:t ~f:(add_row ~factor)
 
 let add_column ~factor t column =
-  Set.map
+  Map.map_keys_exn
     (module Pos)
     t
     ~f:(fun (i, j) ->
@@ -121,7 +108,7 @@ let view t =
   let imax, jmax = bounds t in
   for j = 0 to jmax do
     for i = 0 to imax do
-      if Set.mem t (i, j) then printf "#" else printf "."
+      if Map.mem t (i, j) then printf "#" else printf "."
     done;
     printf "\n"
   done
@@ -155,9 +142,9 @@ let%expect_test "distance" =
   [%expect "9"]
 
 let fold_over_unique_pairs t ~init ~f =
-  Set.fold t ~init ~f:(fun acc a ->
-      let _, gt = Set.split_le_gt t a in
-      Set.fold gt ~init:acc ~f:(fun acc b -> f acc a b))
+  Map.fold t ~init ~f:(fun ~key:a ~data:() acc ->
+      let _, gt = Map.split_le_gt t a in
+      Map.fold gt ~init:acc ~f:(fun ~key:b ~data:() acc -> f acc a b))
 
 let sum_of_distances t =
   fold_over_unique_pairs t ~init:0 ~f:(fun acc a b -> acc + distance a b)
