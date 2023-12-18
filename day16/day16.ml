@@ -17,15 +17,6 @@ let sample =
   ]
   |> String.concat_lines
 
-module Pos = struct
-  module T = struct
-    type t = int * int [@@deriving compare, sexp]
-  end
-
-  include T
-  include Comparable.Make (T)
-end
-
 type mirror = NW | NE [@@deriving sexp]
 type splitter = NS | EW [@@deriving sexp]
 type item = Mirror of mirror | Splitter of splitter [@@deriving sexp]
