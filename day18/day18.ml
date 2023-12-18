@@ -23,11 +23,12 @@ let sample =
 
 type dir = N | S | E | W [@@deriving sexp]
 
-let shift (i, j) = function
-  | E -> (i + 1, j)
-  | W -> (i - 1, j)
-  | N -> (i, j - 1)
-  | S -> (i, j + 1)
+let shift_n (i, j) dir n =
+  match dir with
+  | E -> (i + n, j)
+  | W -> (i - n, j)
+  | N -> (i, j - n)
+  | S -> (i, j + n)
 
 type line = { dir : dir; n : int; p2_dir : dir; p2_n : int } [@@deriving sexp]
 type t = line list [@@deriving sexp]
@@ -92,95 +93,39 @@ let%expect_test "parse" =
      ((dir W) (n 2) (p2_dir W) (p2_n 5411))
      ((dir N) (n 2) (p2_dir N) (p2_n 500254))) |}]
 
-let rec add_line (m, pos) dir n =
-  if n = 0 then (m, pos)
-  else
-    let new_pos = shift pos dir in
-    let new_m = Map.add_exn m ~key:new_pos ~data:() in
-    add_line (new_m, new_pos) dir (n - 1)
+let add_point (acc, pos) dir n =
+  let other_end = shift_n pos dir n in
+  (other_end :: acc, other_end)
 
-let build_map part t =
-  let empty_map = Map.empty (module Pos) in
+let points part t =
   List.fold t
-    ~init:(empty_map, (0, 0))
+    ~init:([ (0, 0) ], (0, 0))
     ~f:(fun acc { dir; n; p2_dir; p2_n } ->
       match part with
-      | `P1 -> add_line acc dir n
-      | `P2 -> add_line acc p2_dir p2_n)
+      | `P1 -> add_point acc dir n
+      | `P2 -> add_point acc p2_dir p2_n)
   |> fst
 
-let%expect_test "build_map" =
-  let m = parse sample |> build_map `P1 in
-  Map2d.view m (fun () -> "#");
-  [%expect
-    {|
-    #######
-    #.....#
-    ###...#
-    ..#...#
-    ..#...#
-    ###.###
-    #...#..
-    ##..###
-    .#....#
-    .###### |}]
+let rec zip_with_tail = function
+  | [] -> assert false
+  | [ _ ] -> []
+  | x :: (y :: _ as xs) -> (x, y) :: zip_with_tail xs
 
-let exterior_start m =
-  let { Map2d.imax; jmax; imin; jmin } = Map2d.bounds m in
-  (List.range imin imax ~stop:`inclusive
-  |> List.concat_map ~f:(fun i -> [ (i, jmin); (i, jmax) ]))
-  @ (List.range jmin jmax ~stop:`inclusive
-    |> List.concat_map ~f:(fun j -> [ (imin, j); (imax, j) ]))
-  |> Set.of_list (module Pos)
-  |> Set.filter ~f:(fun p -> not (Map.mem m p))
-
-let all_dirs = [ N; S; E; W ]
-
-let fill_from m start =
-  let visited = ref (Set.empty (module Pos)) in
-  let bounds = Map2d.bounds m in
-  let q = Queue.of_list (Set.to_list start) in
-  while not (Queue.is_empty q) do
-    let p = Queue.dequeue_exn q in
-    all_dirs
-    |> List.map ~f:(shift p)
-    |> List.iter ~f:(fun new_pos ->
-           if Map.mem m new_pos then ()
-           else if Set.mem !visited new_pos then ()
-           else if Map2d.in_bounds ~from_min:true bounds new_pos then (
-             visited := Set.add !visited new_pos;
-             Queue.enqueue q new_pos)
-           else ())
-  done;
-  !visited
-
-let%expect_test "exterior_start" =
-  let m = parse sample |> build_map `P1 in
-  let start = exterior_start m in
-  let filled = fill_from m start in
-  Map2d.view m (fun () -> "#") ~sets:[ (start, 's'); (filled, 'f') ];
-  [%expect
-    {|
-    #######
-    #.....#
-    ###...#
-    sf#...#
-    sf#...#
-    ###.###
-    #...#fs
-    ##..###
-    s#....#
-    s###### |}]
-
-let bounds_size { Map2d.imax; jmax; imin; jmin } =
-  (imax - imin + 1) * (jmax - jmin + 1)
-
-let result_gen p t =
-  let m = build_map p t in
-  let start = exterior_start m in
-  let filled = fill_from m start in
-  let bounds = Map2d.bounds m in
-  bounds_size bounds - Set.length filled
+let result_gen part t =
+  let points = points part t in
+  let segments = zip_with_tail points in
+  let double_area =
+    segments
+    |> List.map ~f:(fun ((i1, j1), (i2, j2)) -> (i1 * j2) - (j1 * i2))
+    |> sum
+  in
+  let a = double_area / 2 in
+  let b =
+    List.map segments ~f:(fun ((i1, j1), (i2, j2)) ->
+        Int.abs (i1 - i2) + Int.abs (j1 - j2))
+    |> sum
+  in
+  Int.abs a + (b / 2) + 1
 
 let result = result_gen `P1
 
@@ -189,10 +134,10 @@ let%expect_test "result" =
   [%expect {|
     62 |}]
 
-let result2 _ = 0
+let result2 = result_gen `P2
 
 let%expect_test "result2" =
   parse sample |> result2 |> printf "%d\n";
-  [%expect {| 0 |}]
+  [%expect {| 952408144115 |}]
 
 let run () = main All parse result result2
