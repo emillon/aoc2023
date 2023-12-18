@@ -284,33 +284,19 @@ let walk_cycle t =
   go start;
   (loop, !red, !blue)
 
-let view ?(sets = []) t =
-  let { Map2d.imax; jmax; _ } = Map2d.bounds t in
-  for j = 0 to jmax do
-    for i = 0 to imax do
-      match
-        List.find_map sets ~f:(fun (set, c) ->
-            if Set.mem set (i, j) then Some c else None)
-      with
-      | Some c -> printf "%c" c
-      | None -> (
-          match Map.find t (i, j) with
-          | Some NS -> printf "│"
-          | Some EW -> printf "─"
-          | Some NE -> printf "└"
-          | Some NW -> printf "┘"
-          | Some SW -> printf "┐"
-          | Some SE -> printf "┌"
-          | Some Start -> printf "*"
-          | None -> printf ".")
-    done;
-    printf "\n"
-  done
+let sym_to_string = function
+  | NS -> "│"
+  | EW -> "─"
+  | NE -> "└"
+  | NW -> "┘"
+  | SW -> "┐"
+  | SE -> "┌"
+  | Start -> "*"
 
 let%expect_test "walk_cycle" =
   let t = parse sample_p2 in
   let _loop, red, blue = walk_cycle t in
-  view t ~sets:[ (red, 'r'); (blue, 'b') ];
+  Map2d.view ~sets:[ (red, 'r'); (blue, 'b') ] t sym_to_string;
   [%expect
     {|
     r┌────┐┌┐┌┐┌┐┌─┐r...

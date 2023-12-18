@@ -99,14 +99,7 @@ let expand ~factor t =
   |> add_empty_rows ~factor empty_rows
   |> add_empty_columns ~factor empty_columns
 
-let view t =
-  let { Map2d.imax; jmax; _ } = Map2d.bounds t in
-  for j = 0 to jmax do
-    for i = 0 to imax do
-      if Map.mem t (i, j) then printf "#" else printf "."
-    done;
-    printf "\n"
-  done
+let view t = Map2d.view t (fun () -> "#")
 
 let%expect_test "expand" =
   parse sample |> expand ~factor:2 |> view;

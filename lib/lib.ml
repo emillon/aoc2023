@@ -81,4 +81,21 @@ module Map2d = struct
 
   let in_bounds { imax; jmax; imin = _; jmin = _ } (i, j) =
     i >= 0 && i <= imax && j >= 0 && j <= jmax
+
+  let view ?(sets = []) t to_string =
+    let { imax; jmax; _ } = bounds t in
+    for j = 0 to jmax do
+      for i = 0 to imax do
+        match
+          List.find_map sets ~f:(fun (set, c) ->
+              if Set.mem set (i, j) then Some c else None)
+        with
+        | Some c -> printf "%c" c
+        | None -> (
+            match Map.find t (i, j) with
+            | Some x -> printf "%s" (to_string x)
+            | None -> printf ".")
+      done;
+      printf "\n"
+    done
 end

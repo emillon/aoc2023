@@ -26,4 +26,5 @@ module Map2d : sig
 
   val bounds : 'a t -> bounds
   val in_bounds : bounds -> Pos.t -> bool
+  val view : ?sets:(Set.M(Pos).t * char) list -> 'a t -> ('a -> string) -> unit
 end

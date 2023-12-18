@@ -116,18 +116,12 @@ let energize start m =
   |> Set.of_list (module Pos)
 
 let view s =
-  let { Map2d.imax; jmax; _ } =
-    Map2d.bounds
-      (Set.to_list s
-      |> List.map ~f:(fun k -> (k, ()))
-      |> Map.of_alist_exn (module Pos))
+  let m =
+    Set.to_list s
+    |> List.map ~f:(fun k -> (k, ()))
+    |> Map.of_alist_exn (module Pos)
   in
-  for j = 0 to jmax do
-    for i = 0 to imax do
-      if Set.mem s (i, j) then printf "#" else printf "."
-    done;
-    printf "\n"
-  done
+  Map2d.view m (fun () -> "#")
 
 let%expect_test "energize" =
   parse sample |> energize start_p1 |> view;

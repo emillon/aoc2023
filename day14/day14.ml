@@ -32,17 +32,7 @@ let parse =
   in
   parse (Map2d.parse symbol)
 
-let view t =
-  let { Map2d.imax; jmax; _ } = Map2d.bounds t in
-  for j = 0 to jmax do
-    for i = 0 to imax do
-      match Map.find t (i, j) with
-      | Some Cube -> printf "#"
-      | Some Rock -> printf "O"
-      | None -> printf "."
-    done;
-    printf "\n"
-  done
+let view t = Map2d.view t (function Cube -> "#" | Rock -> "O")
 
 let%expect_test "parse" =
   parse sample |> [%sexp_of: t] |> print_s;

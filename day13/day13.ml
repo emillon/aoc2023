@@ -65,15 +65,6 @@ let%expect_test "reflect_col" =
   test 6;
   [%expect {| (1 0) |}]
 
-let view m =
-  let { Map2d.imin; jmin; imax; jmax } = Map2d.bounds m in
-  for j = jmin to jmax do
-    for i = imin to imax do
-      if Map.mem m (i, j) then printf "#" else printf "."
-    done;
-    printf "\n"
-  done
-
 let transpose = Map.map_keys_exn (module Pos) ~f:(fun (i, j) -> (j, i))
 
 type equal_kind = Strict | Smudge
