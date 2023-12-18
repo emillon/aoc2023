@@ -16,3 +16,9 @@ module Pos : sig
 
   include Comparable.S with type t := t
 end
+
+module Map2d : sig
+  type 'a t = 'a Map.M(Pos).t [@@deriving compare, equal, sexp]
+
+  val parse : 'a option Angstrom.t -> 'a t Angstrom.t
+end

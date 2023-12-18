@@ -18,35 +18,19 @@ let sample =
   |> String.concat_lines
 
 type rock = Cube | Rock [@@deriving compare, equal, sexp]
-type t = rock Map.M(Pos).t [@@deriving compare, equal, sexp]
+type t = rock Map2d.t [@@deriving compare, equal, sexp]
 
 let parse =
   let open Angstrom in
   let symbol =
-    let+ pos
-    and+ symbol =
-      choice
-        [
-          char '.' *> return None;
-          char '#' *> return (Some Cube);
-          char 'O' *> return (Some Rock);
-        ]
-    in
-    Option.map symbol ~f:(fun s -> (s, pos))
+    choice
+      [
+        char '.' *> return None;
+        char '#' *> return (Some Cube);
+        char 'O' *> return (Some Rock);
+      ]
   in
-  let line =
-    let+ s = many1 symbol <* end_of_line in
-    (List.filter_opt s, List.length s)
-  in
-  let map =
-    let+ ll = many1 line in
-    let width = (List.hd_exn ll |> snd) + 1 in
-    let off_to_pos off = (off % width, off / width) in
-    List.concat_map ~f:fst ll
-    |> List.map ~f:(fun (sym, off) -> (off_to_pos off, sym))
-    |> Map.of_alist_exn (module Pos)
-  in
-  parse map
+  parse (Map2d.parse symbol)
 
 let bounds =
   Map.fold ~init:(Int.min_value, Int.min_value)

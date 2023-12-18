@@ -30,7 +30,7 @@ let neighbours (i, j) : (Pos.t * Dir.t) list =
   [ ((i, j + 1), S); ((i + 1, j), W); ((i, j - 1), N); ((i - 1, j), E) ]
 
 type sym = NS | EW | NE | NW | SW | SE | Start [@@deriving sexp]
-type t = sym Map.M(Pos).t [@@deriving sexp]
+type t = sym Map2d.t [@@deriving sexp]
 
 let connected_dirs =
   let open Dir in
@@ -48,35 +48,19 @@ let symbol_connects sym dir = List.mem (connected_dirs sym) dir ~equal:Dir.equal
 let parse =
   let open Angstrom in
   let symbol =
-    let+ pos
-    and+ symbol =
-      choice
-        [
-          char '.' *> return None;
-          char '|' *> return (Some NS);
-          char '-' *> return (Some EW);
-          char 'L' *> return (Some NE);
-          char 'J' *> return (Some NW);
-          char '7' *> return (Some SW);
-          char 'F' *> return (Some SE);
-          char 'S' *> return (Some Start);
-        ]
-    in
-    Option.map symbol ~f:(fun s -> (s, pos))
+    choice
+      [
+        char '.' *> return None;
+        char '|' *> return (Some NS);
+        char '-' *> return (Some EW);
+        char 'L' *> return (Some NE);
+        char 'J' *> return (Some NW);
+        char '7' *> return (Some SW);
+        char 'F' *> return (Some SE);
+        char 'S' *> return (Some Start);
+      ]
   in
-  let line =
-    let+ s = many1 symbol <* end_of_line in
-    (List.filter_opt s, List.length s)
-  in
-  let map =
-    let+ ll = many1 line in
-    let width = (List.hd_exn ll |> snd) + 1 in
-    let off_to_pos off = (off % width, off / width) in
-    List.concat_map ~f:fst ll
-    |> List.map ~f:(fun (sym, off) -> (off_to_pos off, sym))
-    |> Map.of_alist_exn (module Pos)
-  in
-  parse map
+  parse (Map2d.parse symbol)
 
 let%expect_test "parse" =
   let test s = parse s |> [%sexp_of: t] |> print_s in
@@ -157,7 +141,7 @@ let distances t =
   !distances
 
 let%expect_test "distances" =
-  parse sample1 |> distances |> [%sexp_of: int Map.M(Pos).t] |> print_s;
+  parse sample1 |> distances |> [%sexp_of: int Map2d.t] |> print_s;
   [%expect
     {|
     (((1 1) 0) ((1 2) 1) ((1 3) 2) ((2 1) 1) ((2 3) 3) ((3 1) 2) ((3 2) 3)

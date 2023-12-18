@@ -37,3 +37,24 @@ module Pos = struct
   include T
   include Comparable.Make (T)
 end
+
+module Map2d = struct
+  type 'a t = 'a Map.M(Pos).t [@@deriving compare, equal, sexp]
+
+  let parse symbol =
+    let open Angstrom in
+    let symbol =
+      let+ pos and+ symbol in
+      Option.map symbol ~f:(fun s -> (s, pos))
+    in
+    let line =
+      let+ s = many1 symbol <* end_of_line in
+      (List.filter_opt s, List.length s)
+    in
+    let+ ll = many1 line in
+    let width = (List.hd_exn ll |> snd) + 1 in
+    let off_to_pos off = (off % width, off / width) in
+    List.concat_map ~f:fst ll
+    |> List.map ~f:(fun (sym, off) -> (off_to_pos off, sym))
+    |> Map.of_alist_exn (module Pos)
+end

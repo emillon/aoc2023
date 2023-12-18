@@ -20,39 +20,21 @@ let sample =
 type mirror = NW | NE [@@deriving sexp]
 type splitter = NS | EW [@@deriving sexp]
 type item = Mirror of mirror | Splitter of splitter [@@deriving sexp]
-type t = item Map.M(Pos).t [@@deriving sexp]
+type t = item Map2d.t [@@deriving sexp]
 
 let parse =
   let open Angstrom in
   let symbol =
-    let+ pos
-    and+ symbol =
-      choice
-        [
-          char '.' *> return None;
-          char '/' *> return (Some (Mirror NE));
-          char '\\' *> return (Some (Mirror NW));
-          char '|' *> return (Some (Splitter NS));
-          char '-' *> return (Some (Splitter EW));
-        ]
-    in
-    (symbol, pos)
+    choice
+      [
+        char '.' *> return None;
+        char '/' *> return (Some (Mirror NE));
+        char '\\' *> return (Some (Mirror NW));
+        char '|' *> return (Some (Splitter NS));
+        char '-' *> return (Some (Splitter EW));
+      ]
   in
-  let line =
-    let+ s = many1 symbol <* end_of_line in
-    ( List.filter_map s ~f:(fun (sym_opt, pos) ->
-          Option.map sym_opt ~f:(fun sym -> (sym, pos))),
-      List.length s )
-  in
-  let map =
-    let+ ll = many1 line in
-    let width = (List.hd_exn ll |> snd) + 1 in
-    let off_to_pos off = (off % width, off / width) in
-    List.concat_map ~f:fst ll
-    |> List.map ~f:(fun (item, off) -> (off_to_pos off, item))
-    |> Map.of_alist_exn (module Pos)
-  in
-  parse map
+  parse (Map2d.parse symbol)
 
 let%expect_test "parse" =
   parse sample |> [%sexp_of: t] |> print_s;
