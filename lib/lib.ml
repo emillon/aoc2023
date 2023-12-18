@@ -79,8 +79,9 @@ module Map2d = struct
           jmax = Int.max j jmax;
         })
 
-  let in_bounds { imax; jmax; imin = _; jmin = _ } (i, j) =
-    i >= 0 && i <= imax && j >= 0 && j <= jmax
+  let in_bounds ?(from_min = false) { imax; jmax; imin; jmin } (i, j) =
+    let istart, jstart = if from_min then (imin, jmin) else (0, 0) in
+    i >= istart && i <= imax && j >= jstart && j <= jmax
 
   let view ?(sets = []) t to_string =
     let { imax; jmax; _ } = bounds t in

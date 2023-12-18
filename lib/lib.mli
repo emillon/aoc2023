@@ -25,6 +25,6 @@ module Map2d : sig
   type bounds = { imin : int; imax : int; jmin : int; jmax : int }
 
   val bounds : 'a t -> bounds
-  val in_bounds : bounds -> Pos.t -> bool
+  val in_bounds : ?from_min:bool -> bounds -> Pos.t -> bool
   val view : ?sets:(Set.M(Pos).t * char) list -> 'a t -> ('a -> string) -> unit
 end
