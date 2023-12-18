@@ -46,11 +46,6 @@ let%expect_test "parse" =
       ((6 5) ()) ((7 2) ()) ((7 3) ()) ((7 4) ()) ((7 5) ()) ((8 0) ())
       ((8 1) ()) ((8 2) ()) ((8 5) ()) ((8 6) ()))) |}]
 
-let bounds =
-  Map.fold ~init:(Int.max_value, Int.max_value, Int.min_value, Int.min_value)
-    ~f:(fun ~key:(i, j) ~data:_ (min_i, min_j, max_i, max_j) ->
-      (Int.min i min_i, Int.min j min_j, Int.max i max_i, Int.max j max_j))
-
 type reflection = Col of int | Row of int [@@deriving sexp]
 
 let reflect_col (i, j) col_i =
@@ -71,7 +66,7 @@ let%expect_test "reflect_col" =
   [%expect {| (1 0) |}]
 
 let view m =
-  let imin, jmin, imax, jmax = bounds m in
+  let { Map2d.imin; jmin; imax; jmax } = Map2d.bounds m in
   for j = jmin to jmax do
     for i = imin to imax do
       if Map.mem m (i, j) then printf "#" else printf "."
@@ -111,7 +106,7 @@ let is_col_reflection kind m imax col_i =
   equal kind mirror side
 
 let find_col_reflection kind m =
-  let _, _, imax, _ = bounds m in
+  let { Map2d.imax; _ } = Map2d.bounds m in
   List.range 0 imax |> List.find ~f:(is_col_reflection kind m imax)
 
 let find_row_reflection kind m = m |> transpose |> find_col_reflection kind

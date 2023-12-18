@@ -32,13 +32,8 @@ let parse =
   in
   parse (Map2d.parse symbol)
 
-let bounds =
-  Map.fold ~init:(Int.min_value, Int.min_value)
-    ~f:(fun ~key:(i, j) ~data:_ (max_i, max_j) ->
-      (Int.max i max_i, Int.max j max_j))
-
 let view t =
-  let imax, jmax = bounds t in
+  let { Map2d.imax; jmax; _ } = Map2d.bounds t in
   for j = 0 to jmax do
     for i = 0 to imax do
       match Map.find t (i, j) with
@@ -82,9 +77,6 @@ let shift (i, j) = function
   | W -> (i - 1, j)
   | E -> (i + 1, j)
 
-let is_in_bounds (imax, jmax) (i, j) =
-  0 <= i && i <= imax && 0 <= j && j <= jmax
-
 let step dir bounds t =
   Map.map_keys_exn
     (module Pos)
@@ -94,12 +86,12 @@ let step dir bounds t =
       | Cube -> p
       | Rock ->
           let dst = shift p dir in
-          if is_in_bounds bounds dst then if Map.mem t dst then p else dst
+          if Map2d.in_bounds bounds dst then if Map.mem t dst then p else dst
           else p)
 
 let%expect_test "step" =
   let t = parse sample in
-  t |> step N (bounds t) |> view;
+  t |> step N (Map2d.bounds t) |> view;
   [%expect
     {|
     O.OO.#....
@@ -118,7 +110,7 @@ let rec fixpoint ~equal ~f x =
   if equal x y then x else fixpoint ~equal ~f y
 
 let move_all dir t =
-  let bounds = bounds t in
+  let bounds = Map2d.bounds t in
   fixpoint ~f:(step dir bounds) ~equal:[%equal: t] t
 
 let%expect_test "move_all" =
@@ -137,13 +129,13 @@ let%expect_test "move_all" =
     #....#.... |}]
 
 let load bounds t =
-  let _, jmax = bounds in
+  let { Map2d.jmax; _ } = bounds in
   let score_for_row j = jmax - j + 1 in
   Map.fold t ~init:0 ~f:(fun ~key:(_i, j) ~data acc ->
       match data with Cube -> acc | Rock -> acc + score_for_row j)
 
 let result t =
-  let bounds = bounds t in
+  let bounds = Map2d.bounds t in
   let moved = move_all N t in
   load bounds moved
 
@@ -224,7 +216,7 @@ let%expect_test "cyclic_values" =
   [%expect {| (10 3) |}]
 
 let result2 t =
-  let bounds = bounds t in
+  let bounds = Map2d.bounds t in
   let n, values = cycle_values t in
   let values_len = Map.length values in
   let modulus = values_len - n in

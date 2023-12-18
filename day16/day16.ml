@@ -57,11 +57,6 @@ let shift (i, j) = function
   | N -> (i, j - 1)
   | S -> (i, j + 1)
 
-let bounds =
-  Map.fold ~init:(Int.min_value, Int.min_value)
-    ~f:(fun ~key:(i, j) ~data:_ (max_i, max_j) ->
-      (Int.max i max_i, Int.max j max_j))
-
 let reflect_dir md d =
   match (md, d) with
   | NW, E -> S
@@ -79,8 +74,6 @@ let split sd d =
   | NS, (N | S) -> None
   | EW, (N | S) -> Some (E, W)
   | EW, (E | W) -> None
-
-let in_bounds (imax, jmax) (i, j) = 0 <= i && i <= imax && 0 <= j && j <= jmax
 
 module State = struct
   module T = struct
@@ -105,13 +98,13 @@ let next m { State.pos; dir } =
 let start_p1 = { State.pos = (0, 0); dir = E }
 
 let energize start m =
-  let bounds = bounds m in
+  let bounds = Map2d.bounds m in
   let q : State.t Queue.t = Queue.create () in
   Queue.enqueue q start;
   let visited = ref (Set.empty (module State)) in
   while not (Queue.is_empty q) do
     let s = Queue.dequeue_exn q in
-    if in_bounds bounds s.pos then
+    if Map2d.in_bounds bounds s.pos then
       if Set.mem !visited s then ()
       else (
         visited := Set.add !visited s;
@@ -123,8 +116,8 @@ let energize start m =
   |> Set.of_list (module Pos)
 
 let view s =
-  let imax, jmax =
-    bounds
+  let { Map2d.imax; jmax; _ } =
+    Map2d.bounds
       (Set.to_list s
       |> List.map ~f:(fun k -> (k, ()))
       |> Map.of_alist_exn (module Pos))
@@ -158,7 +151,7 @@ let%expect_test "result" =
   [%expect {| 46 |}]
 
 let initial_states m =
-  let imax, jmax = bounds m in
+  let { Map2d.imax; jmax; _ } = Map2d.bounds m in
   (List.range 0 imax ~stop:`inclusive
   |> List.concat_map ~f:(fun i ->
          [ { State.pos = (i, 0); dir = S }; { pos = (i, jmax); dir = N } ]))

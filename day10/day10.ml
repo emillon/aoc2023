@@ -178,17 +178,8 @@ let sample_p2 =
   ]
   |> String.concat_lines
 
-let bounds =
-  Map.fold ~init:(Int.min_value, Int.min_value)
-    ~f:(fun ~key:(i, j) ~data:_ (max_i, max_j) ->
-      (Int.max i max_i, Int.max j max_j))
-
-let%expect_test "bounds" =
-  parse sample_p2 |> bounds |> [%sexp_of: int * int] |> print_s;
-  [%expect {| (19 9) |}]
-
 let exterior_start t =
-  let imax, jmax = bounds t in
+  let { Map2d.imax; jmax; _ } = Map2d.bounds t in
   (List.range 0 imax |> List.concat_map ~f:(fun i -> [ (i, 0); (i, jmax) ]))
   @ (List.range 0 jmax |> List.concat_map ~f:(fun j -> [ (0, j); (imax, j) ]))
   |> List.filter ~f:(fun pos -> not (Map.mem t pos))
@@ -203,11 +194,6 @@ let%expect_test "exterior_start" =
      ((0 0) (0 9) (1 9) (2 9) (3 9) (9 9) (12 9) (16 0) (17 0) (17 9) (18 0)
       (18 9) (0 0) (19 0) (0 1) (19 1) (0 2) (19 2) (19 3) (19 4) (0 5) (0 6)
       (0 7) (0 8) (19 8))) |}]
-
-let is_in_bounds (i, j) ~bounds:(imax, jmax) =
-  i >= 0 && i <= imax && j >= 0 && j <= jmax
-
-let bound_size (imax, jmax) = (imax + 1) * (jmax + 1)
 
 type ann = Next of Pos.t | Prev | Other of Pos.t option [@@deriving sexp]
 
@@ -299,7 +285,7 @@ let walk_cycle t =
   (loop, !red, !blue)
 
 let view ?(sets = []) t =
-  let imax, jmax = bounds t in
+  let { Map2d.imax; jmax; _ } = Map2d.bounds t in
   for j = 0 to jmax do
     for i = 0 to imax do
       match
@@ -340,15 +326,15 @@ let%expect_test "walk_cycle" =
 
 let result2 t =
   let loop, inner_start, _ = walk_cycle t in
-  let bounds = bounds t in
+  let bounds = Map2d.bounds t in
   let filled = ref (Set.empty (module Pos)) in
   let q = Queue.create () in
   inner_start |> Set.to_list
-  |> List.filter ~f:(is_in_bounds ~bounds)
+  |> List.filter ~f:(Map2d.in_bounds bounds)
   |> Queue.enqueue_all q;
   while not (Queue.is_empty q) do
     let pos = Queue.dequeue_exn q in
-    if is_in_bounds pos ~bounds then
+    if Map2d.in_bounds bounds pos then
       if Set.mem !filled pos then ()
       else if Set.mem loop pos then ()
       else (

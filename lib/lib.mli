@@ -21,4 +21,9 @@ module Map2d : sig
   type 'a t = 'a Map.M(Pos).t [@@deriving compare, equal, sexp]
 
   val parse : 'a option Angstrom.t -> 'a t Angstrom.t
+
+  type bounds = { imin : int; imax : int; jmin : int; jmax : int }
+
+  val bounds : 'a t -> bounds
+  val in_bounds : bounds -> Pos.t -> bool
 end

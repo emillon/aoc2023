@@ -33,13 +33,8 @@ let%expect_test "parse" =
     (((0 2) ()) ((0 9) ()) ((1 5) ()) ((3 0) ()) ((4 9) ()) ((6 4) ()) ((7 1) ())
      ((7 8) ()) ((9 6) ())) |}]
 
-let bounds =
-  Map.fold ~init:(Int.min_value, Int.min_value)
-    ~f:(fun ~key:(i, j) ~data:_ (max_i, max_j) ->
-      (Int.max i max_i, Int.max j max_j))
-
 let empty_columns t =
-  let imax, jmax = bounds t in
+  let { Map2d.imax; jmax; _ } = Map2d.bounds t in
   let r = ref [] in
   let is_column_empty i =
     let ok = ref true in
@@ -54,7 +49,7 @@ let empty_columns t =
   !r
 
 let empty_rows t =
-  let imax, jmax = bounds t in
+  let { Map2d.imax; jmax; _ } = Map2d.bounds t in
   let r = ref [] in
   let is_row_empty j =
     let ok = ref true in
@@ -105,7 +100,7 @@ let expand ~factor t =
   |> add_empty_columns ~factor empty_columns
 
 let view t =
-  let imax, jmax = bounds t in
+  let { Map2d.imax; jmax; _ } = Map2d.bounds t in
   for j = 0 to jmax do
     for i = 0 to imax do
       if Map.mem t (i, j) then printf "#" else printf "."

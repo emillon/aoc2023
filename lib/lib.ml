@@ -60,4 +60,25 @@ module Map2d = struct
     List.concat_map ~f:fst ll
     |> List.map ~f:(fun (sym, off) -> (off_to_pos off, sym))
     |> Map.of_alist_exn (module Pos)
+
+  type bounds = { imin : int; imax : int; jmin : int; jmax : int }
+
+  let bounds =
+    Map.fold
+      ~init:
+        {
+          imin = Int.max_value;
+          jmin = Int.max_value;
+          imax = Int.min_value;
+          jmax = Int.min_value;
+        } ~f:(fun ~key:(i, j) ~data:_ { imin; jmin; imax; jmax } ->
+        {
+          imin = Int.min i imin;
+          jmin = Int.min j jmin;
+          imax = Int.max i imax;
+          jmax = Int.max j jmax;
+        })
+
+  let in_bounds { imax; jmax; imin = _; jmin = _ } (i, j) =
+    i >= 0 && i <= imax && j >= 0 && j <= jmax
 end
