@@ -85,27 +85,46 @@ let shift (i, j) = function
   | N -> (i, j - 1)
   | S -> (i, j + 1)
 
+let guard = function true -> Some () | false -> None
+
 module Last_dirs : sig
   type t [@@deriving compare, equal, hash, sexp]
 
   val empty : t
-  val add : t -> dir -> t option
-  val is_reverse : t -> dir -> bool
+  val ultra : t
+  val next : t -> (dir * t) list
 end = struct
-  type t = dir option * dir option * dir option
+  type t =
+    | Same of { last_dir : dir; count : int; max : int; min : int }
+    | Empty of { max : int; min : int }
   [@@deriving compare, equal, hash, sexp]
 
-  let empty = (None, None, None)
+  let empty = Empty { min = -1; max = 3 }
+  let ultra = Empty { min = 4; max = 10 }
 
   let add ld d =
     match ld with
-    | Some a, Some b, Some c
-      when equal_dir a b && equal_dir a c && equal_dir a d ->
-        None
-    | ao, bo, _ -> Some (Some d, ao, bo)
+    | Empty { min; max } -> Some (Same { last_dir = d; count = 1; max; min })
+    | Same { last_dir; count; max; min } ->
+        if equal_dir d last_dir then
+          if count = max then None
+          else Some (Same { last_dir; count = count + 1; max; min })
+        else if count < min then None
+        else Some (Same { last_dir = d; count = 1; max; min })
 
-  let is_reverse (ao, _, _) dir =
-    match ao with Some a -> equal_dir a (reverse_dir dir) | None -> false
+  let last_dir = function
+    | Empty _ -> None
+    | Same { last_dir; _ } -> Some last_dir
+
+  let is_reverse t dir =
+    [%equal: dir option] (last_dir t) (Some (reverse_dir dir))
+
+  let next t =
+    List.filter_map all_dirs ~f:(fun dir ->
+        let open Option.Let_syntax in
+        let%bind () = guard (not (is_reverse t dir)) in
+        let%map t' = add t dir in
+        (dir, t'))
 end
 
 module State = struct
@@ -118,16 +137,11 @@ module State = struct
   include Comparable.Make (T)
 end
 
-let guard = function true -> Some () | false -> None
-
-let next_states { State.pos; last_dirs } bounds =
-  List.filter_map all_dirs ~f:(fun dir ->
-      let open Option.Let_syntax in
-      let new_pos = shift pos dir in
-      let%bind () = guard (Map2d.in_bounds bounds new_pos) in
-      let%bind () = guard (not (Last_dirs.is_reverse last_dirs dir)) in
-      let%map last_dirs = Last_dirs.add last_dirs dir in
-      { State.pos = new_pos; last_dirs })
+let next_states { State.pos; last_dirs } =
+  Last_dirs.next last_dirs
+  |> List.map ~f:(fun (dir, last_dirs) ->
+         let new_pos = shift pos dir in
+         { State.pos = new_pos; last_dirs })
 
 let add_dist d n = if Int.equal d Int.max_value then d else d + n
 
@@ -136,53 +150,44 @@ let iter_on_heap q ~f =
     f (Pairing_heap.pop_exn q)
   done
 
-let shortest m =
+let shortest last_dirs m =
   let bounds = Map2d.bounds m in
   let end_pos = (bounds.imax, bounds.jmax) in
   let dist = Hashtbl.create (module State) in
-  let prev = Hashtbl.create (module State) in
-  let rec get_trace pos =
-    match Hashtbl.find prev pos with
-    | None -> [ pos ]
-    | Some p -> pos :: get_trace p
-  in
   let dist_f s =
     match Hashtbl.find dist s with Some d -> d | None -> Int.max_value
   in
   let compare_dist_state a b = Int.compare (dist_f a) (dist_f b) in
   let q = Pairing_heap.create ~cmp:compare_dist_state () in
   let start_pos = (0, 0) in
-  let start_state = { State.pos = start_pos; last_dirs = Last_dirs.empty } in
+  let start_state = { State.pos = start_pos; last_dirs } in
   Hashtbl.set dist ~key:start_state ~data:0;
   Pairing_heap.add q start_state;
   let exception Found of State.t in
   try
     iter_on_heap q ~f:(fun u ->
         if Pos.equal u.pos end_pos then raise (Found u);
-        next_states u bounds
+        next_states u
         |> List.iter ~f:(fun v ->
-               let alt = add_dist (dist_f u) (Map.find_exn m v.pos) in
-               if alt < dist_f v then (
-                 Hashtbl.set dist ~key:v ~data:alt;
-                 Hashtbl.set prev ~key:v ~data:u;
-                 Pairing_heap.add q v)));
+               if Map2d.in_bounds bounds v.pos then
+                 let alt = add_dist (dist_f u) (Map.find_exn m v.pos) in
+                 if alt < dist_f v then (
+                   Hashtbl.set dist ~key:v ~data:alt;
+                   Pairing_heap.add q v)));
     assert false
-  with Found end_state ->
-    (Hashtbl.find_exn dist end_state, get_trace end_state)
+  with Found end_state -> Hashtbl.find_exn dist end_state
 
-let result m =
-  let d, _t = shortest m in
-  d
+let result m = shortest Last_dirs.empty m
 
 let%expect_test "result" =
   parse sample |> result |> printf "%d\n";
   [%expect {|
     102 |}]
 
-let result2 _ = 0
+let result2 m = shortest Last_dirs.ultra m
 
 let%expect_test "result2" =
   parse sample |> result2 |> printf "%d\n";
-  [%expect {| 0 |}]
+  [%expect {| 94 |}]
 
 let run () = main All parse result result2
