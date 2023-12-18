@@ -12,7 +12,7 @@ val main : 'i kind -> ('i -> 'a) -> ('a -> int) -> ('a -> int) -> unit
 val parse : 'a Angstrom.t -> string -> 'a
 
 module Pos : sig
-  type t = int * int [@@deriving sexp]
+  type t = int * int [@@deriving hash, sexp]
 
   include Comparable.S with type t := t
 end

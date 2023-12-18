@@ -74,7 +74,7 @@ let%expect_test "parse" =
      ((12 3) 2) ((12 4) 6) ((12 5) 4) ((12 6) 6) ((12 7) 3) ((12 8) 7) ((12 9) 3)
      ((12 10) 3) ((12 11) 5) ((12 12) 3)) |}]
 
-type dir = N | S | E | W [@@deriving compare, equal, sexp]
+type dir = N | S | E | W [@@deriving compare, equal, hash, sexp]
 
 let all_dirs = [ N; S; E; W ]
 let reverse_dir = function N -> S | S -> N | E -> W | W -> E
@@ -86,14 +86,14 @@ let shift (i, j) = function
   | S -> (i, j + 1)
 
 module Last_dirs : sig
-  type t [@@deriving compare, equal, sexp]
+  type t [@@deriving compare, equal, hash, sexp]
 
   val empty : t
   val add : t -> dir -> t option
   val is_reverse : t -> dir -> bool
 end = struct
   type t = dir option * dir option * dir option
-  [@@deriving compare, equal, sexp]
+  [@@deriving compare, equal, hash, sexp]
 
   let empty = (None, None, None)
 
@@ -111,7 +111,7 @@ end
 module State = struct
   module T = struct
     type t = { pos : Pos.t; last_dirs : Last_dirs.t }
-    [@@deriving compare, equal, sexp]
+    [@@deriving compare, equal, hash, sexp]
   end
 
   include T
@@ -129,25 +129,7 @@ let next_states { State.pos; last_dirs } bounds =
       let%map last_dirs = Last_dirs.add last_dirs dir in
       { State.pos = new_pos; last_dirs })
 
-type dist = Finite of int | Inf [@@deriving compare, equal, sexp]
-
-let add_dist d n = match d with Inf -> Inf | Finite x -> Finite (x + n)
-
-let%expect_test "compare_dist" =
-  let test a b =
-    let r = compare_dist a b in
-    print_s [%message "compare_dist" (a : dist) (b : dist) (r : int)]
-  in
-  test Inf Inf;
-  [%expect {| (compare_dist (a Inf) (b Inf) (r 0)) |}];
-  test (Finite 4) (Finite 6);
-  [%expect {| (compare_dist (a (Finite 4)) (b (Finite 6)) (r -1)) |}];
-  test (Finite 4) Inf;
-  [%expect {| (compare_dist (a (Finite 4)) (b Inf) (r -1)) |}];
-  test (Finite 10) (Finite 0);
-  [%expect {| (compare_dist (a (Finite 10)) (b (Finite 0)) (r 1)) |}];
-  test Inf (Finite 0);
-  [%expect {| (compare_dist (a Inf) (b (Finite 0)) (r 1)) |}]
+let add_dist d n = if Int.equal d Int.max_value then d else d + n
 
 let iter_on_heap q ~f =
   while not (Pairing_heap.is_empty q) do
@@ -157,19 +139,21 @@ let iter_on_heap q ~f =
 let shortest m =
   let bounds = Map2d.bounds m in
   let end_pos = (bounds.imax, bounds.jmax) in
-  let dist = ref (Map.empty (module State)) in
-  let prev = ref (Map.empty (module State)) in
+  let dist = Hashtbl.create (module State) in
+  let prev = Hashtbl.create (module State) in
   let rec get_trace pos =
-    match Map.find !prev pos with
+    match Hashtbl.find prev pos with
     | None -> [ pos ]
     | Some p -> pos :: get_trace p
   in
-  let dist_f s = match Map.find !dist s with Some d -> d | None -> Inf in
-  let compare_dist_state a b = compare_dist (dist_f a) (dist_f b) in
+  let dist_f s =
+    match Hashtbl.find dist s with Some d -> d | None -> Int.max_value
+  in
+  let compare_dist_state a b = Int.compare (dist_f a) (dist_f b) in
   let q = Pairing_heap.create ~cmp:compare_dist_state () in
   let start_pos = (0, 0) in
   let start_state = { State.pos = start_pos; last_dirs = Last_dirs.empty } in
-  dist := Map.set !dist ~key:start_state ~data:(Finite 0);
+  Hashtbl.set dist ~key:start_state ~data:0;
   Pairing_heap.add q start_state;
   let exception Found of State.t in
   try
@@ -178,21 +162,21 @@ let shortest m =
         next_states u bounds
         |> List.iter ~f:(fun v ->
                let alt = add_dist (dist_f u) (Map.find_exn m v.pos) in
-               if compare_dist alt (dist_f v) < 0 then (
-                 dist := Map.set !dist ~key:v ~data:alt;
-                 prev := Map.set !prev ~key:v ~data:u;
+               if alt < dist_f v then (
+                 Hashtbl.set dist ~key:v ~data:alt;
+                 Hashtbl.set prev ~key:v ~data:u;
                  Pairing_heap.add q v)));
     assert false
-  with Found end_state -> (Map.find_exn !dist end_state, get_trace end_state)
+  with Found end_state ->
+    (Hashtbl.find_exn dist end_state, get_trace end_state)
 
 let result m =
   let d, _t = shortest m in
-  match d with Finite n -> n | Inf -> assert false
+  d
 
 let%expect_test "result" =
   parse sample |> result |> printf "%d\n";
-  [%expect
-    {|
+  [%expect {|
     102 |}]
 
 let result2 _ = 0
