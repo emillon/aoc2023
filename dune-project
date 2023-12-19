@@ -15,6 +15,7 @@
    (>= 0.15))
   (base
    (>= v0.16))
+  core_kernel
   (diet
    (>= 0.4))
   ppx_jane
