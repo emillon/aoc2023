@@ -162,29 +162,96 @@ let rec eval_outcome l input =
       if eval_condition input condition then outcome
       else eval_outcome otherwise input
 
-let eval workflows input =
-  let rec go name input =
-    let s = Map.find_exn workflows name in
-    let outcome = eval_outcome s input in
-    match outcome with Goto new_name -> go new_name input | Return b -> b
-  in
-  go "in" input
+let rec eval m input name =
+  let s = Map.find_exn m name in
+  match eval_outcome s input with
+  | Goto new_name -> eval m input new_name
+  | Return b -> b
 
 let value { x; m; a; s } = x + m + a + s
 
 let result { workflows; inputs } =
   List.filter_map inputs ~f:(fun input ->
-      if eval workflows input then Some (value input) else None)
+      if eval workflows input "in" then Some (value input) else None)
   |> sum
 
 let%expect_test "result" =
   parse sample |> result |> printf "%d\n";
   [%expect {| 19114 |}]
 
-let result2 _ = 0
+type diet = Diet.Int.t
+
+let sexp_of_diet d =
+  Diet.Int.fold
+    (fun i acc -> (Diet.Int.Interval.x i, Diet.Int.Interval.y i) :: acc)
+    d []
+  |> List.rev |> [%sexp_of: (int * int) list]
+
+let equal_diet = Diet.Int.equal
+
+type abstract = { x : diet; m : diet; a : diet; s : diet }
+[@@deriving equal, sexp_of]
+
+let cardinal { x; m; a; s } =
+  Diet.Int.cardinal x * Diet.Int.cardinal m * Diet.Int.cardinal a
+  * Diet.Int.cardinal s
+
+let bottom =
+  let empty = Diet.Int.empty in
+  { x = empty; m = empty; a = empty; s = empty }
+
+let from_interval x y =
+  let i = Diet.Int.Interval.make x y in
+  Diet.Int.add i Diet.Int.empty
+
+let top =
+  let min = 1 in
+  let max = 4000 in
+  let d = from_interval min max in
+  { x = d; m = d; a = d; s = d }
+
+let lift_var t ~f = function
+  | X -> { t with x = f t.x }
+  | M -> { t with m = f t.m }
+  | A -> { t with a = f t.a }
+  | S -> { t with s = f t.s }
+
+let set_min v n t =
+  lift_var t v ~f:(Diet.Int.inter (from_interval n Int.max_value))
+
+let set_max v n t = lift_var t v ~f:(Diet.Int.inter (from_interval 0 n))
+
+let is_true c cs =
+  match c with
+  | Always -> cs
+  | Op { op = Gt; variable; rhs } -> set_min variable (rhs + 1) cs
+  | Op { op = Lt; variable; rhs } -> set_max variable (rhs - 1) cs
+
+let is_false c cs =
+  match c with
+  | Always -> bottom
+  | Op { op = Lt; variable; rhs } -> set_min variable rhs cs
+  | Op { op = Gt; variable; rhs } -> set_max variable rhs cs
+
+let eval_abstract cs m name =
+  let named = Map.find_exn m in
+  let rec go cs l =
+    match l with
+    | [] -> 0
+    | { condition; outcome = Return false } :: otherwise ->
+        go (is_false condition cs) otherwise
+    | { condition; outcome = Return true } :: otherwise ->
+        cardinal (is_true condition cs) + go (is_false condition cs) otherwise
+    | { condition; outcome = Goto name } :: otherwise ->
+        go (is_true condition cs) (named name)
+        + go (is_false condition cs) otherwise
+  in
+  go cs (named name)
+
+let result2 t = eval_abstract top t.workflows "in"
 
 let%expect_test "result2" =
   parse sample |> result2 |> printf "%d\n";
-  [%expect {| 0 |}]
+  [%expect {| 167409079868000 |}]
 
 let run () = main All parse result result2
