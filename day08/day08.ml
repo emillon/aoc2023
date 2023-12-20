@@ -91,24 +91,6 @@ let sample_p2 =
   ]
   |> String.concat_lines
 
-(** Return g, s, t and gcd(a,b) such that as+bt = g = gcd(a,b) *)
-let rec egcd a b =
-  if b = 0 then (a, 1, 0)
-  else
-    let d, s, t = egcd b (a % b) in
-    (d, t, s - (a / b * t))
-
-let%expect_test "egcd" =
-  let test a b = egcd a b |> [%sexp_of: int * int * int] |> print_s in
-  test 5 3;
-  [%expect {| (1 -1 2) |}]
-
-let lcm2 a b =
-  let d, _, _ = egcd a b in
-  a * b / d
-
-let lcm l = fold1 l ~f:lcm2
-
 let find_cycle_info t start end_nodes =
   let prev_end = ref None in
   let rec go cur i moves =

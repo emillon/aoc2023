@@ -151,7 +151,8 @@ let trace l =
 let%expect_test "trace" =
   let test s = parse s |> trace in
   test sample1;
-  [%expect{|
+  [%expect
+    {|
     broadcaster -[low]-> a
     broadcaster -[low]-> b
     broadcaster -[low]-> c
@@ -164,7 +165,8 @@ let%expect_test "trace" =
     c -[low]-> inv
     inv -[high]-> a |}];
   test sample2;
-  [%expect{|
+  [%expect
+    {|
     broadcaster -[low]-> a
     a -[high]-> inv
     a -[high]-> con
@@ -194,10 +196,23 @@ let%expect_test "result" =
   test sample2;
   [%expect {| 11687500 |}]
 
-let result2 _ = 0
+let only = function [ x ] -> x | _ -> assert false
 
-let%expect_test "result2" =
-  parse sample1 |> result2 |> printf "%d\n";
-  [%expect {| 0 |}]
+let cycle_len l n =
+  let ok = ref false in
+  let bus, press_button =
+    setup_bus l ~f:(fun ~src:_ ~dst level ->
+        match level with Low when String.equal dst n -> ok := true | _ -> ())
+  in
+  let i = ref 0 in
+  while not !ok do
+    Int.incr i;
+    press_button ();
+    Bus.run bus
+  done;
+  !i
+
+let result2 l =
+  find_srcs l "rx" |> only |> find_srcs l |> List.map ~f:(cycle_len l) |> lcm
 
 let run () = main All parse result result2

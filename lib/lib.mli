@@ -28,3 +28,5 @@ module Map2d : sig
   val in_bounds : ?from_min:bool -> bounds -> Pos.t -> bool
   val view : ?sets:(Set.M(Pos).t * char) list -> 'a t -> ('a -> string) -> unit
 end
+
+val lcm : int list -> int
