@@ -67,6 +67,12 @@ let shift (i, j) = function
   | W -> (i - 1, j)
   | E -> (i + 1, j)
 
+let rec next_available_in_dir t bounds p dir =
+  let dst = shift p dir in
+  if Map2d.in_bounds bounds dst then
+    if Map.mem t dst then p else next_available_in_dir t bounds dst dir
+  else p
+
 let step dir bounds t =
   Map.map_keys_exn
     (module Pos)
@@ -74,25 +80,22 @@ let step dir bounds t =
     ~f:(fun p ->
       match Map.find_exn t p with
       | Cube -> p
-      | Rock ->
-          let dst = shift p dir in
-          if Map2d.in_bounds bounds dst then if Map.mem t dst then p else dst
-          else p)
+      | Rock -> next_available_in_dir t bounds p dir)
 
 let%expect_test "step" =
   let t = parse sample in
   t |> step N (Map2d.bounds t) |> view;
   [%expect
     {|
-    O.OO.#....
+    OOOO.#.O..
     O...#....#
-    OO..O##..O
-    ...#...O..
-    OO...O..#.
-    ..#...O#.#
+    O...O##..O
+    ...#.OO...
+    OO......#.
+    .O#....#.#
     ..O..#.O.O
-    ..........
-    #OO..###..
+    ..O.......
+    #....###..
     #....#.... |}]
 
 let rec fixpoint ~equal ~f x =
