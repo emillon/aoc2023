@@ -81,57 +81,21 @@ let next_available_in_dir t p dir =
   in
   go p
 
-let array_iteri ~rev a ~f =
-  let n = Array.length a in
-  if rev then
-    for i = n - 1 downto 0 do
-      f i (Array.unsafe_get a i)
-    done
-  else
-    for i = 0 to n - 1 do
-      f i (Array.unsafe_get a i)
-    done
-
-let iter_along_dir t dir ~f =
-  let { Map2d.imax; jmax; _ } = Map2d.Dense.bounds t in
-  let go pos =
-    match Map2d.Dense.get t pos with None -> () | Some v -> f pos v
-  in
-  match dir with
-  | S ->
-      for j = jmax downto 0 do
-        for i = 0 to imax do
-          go (i, j)
-        done
-      done
-  | E ->
-      for i = 0 to imax do
-        for j = 0 to jmax do
-          go (i, j)
-        done
-      done
-  | N ->
-      for j = 0 to jmax do
-        for i = 0 to imax do
-          go (i, j)
-        done
-      done
-  | W ->
-      for i = imax downto 0 do
-        for j = 0 to jmax do
-          go (i, j)
-        done
-      done
-
 let step dir t =
   let t' = Array.copy_matrix t in
-  iter_along_dir t dir ~f:(fun p v ->
-      match v with
-      | Cube -> ()
-      | Rock ->
-          let dst = next_available_in_dir t p dir in
+  let { Map2d.imax; jmax; _ } = Map2d.Dense.bounds t in
+  for i = 0 to imax do
+    for j = 0 to jmax do
+      let p = (i, j) in
+      match Map2d.Dense.get t p with
+      | None -> ()
+      | Some Cube -> ()
+      | Some Rock ->
+          let dst = next_available_in_dir t' p dir in
           Map2d.Dense.set t' p None;
-          Map2d.Dense.set t' dst (Some Rock));
+          Map2d.Dense.set t' dst (Some Rock)
+    done
+  done;
   t'
 
 let%expect_test "step" =
