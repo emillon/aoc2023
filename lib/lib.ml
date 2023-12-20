@@ -99,6 +99,65 @@ module Map2d = struct
       done;
       printf "\n"
     done
+
+  let fold = Map.fold
+  let find_exn = Map.find_exn
+  let mem = Map.mem
+
+  module Dense = struct
+    type 'a t = 'a option array array [@@deriving compare, equal, sexp]
+
+    let set a (i, j) vo = a.(j).(i) <- vo
+    let get m (i, j) = m.(j).(i)
+
+    let alloc_from_bounds { imax; jmax; _ } =
+      Array.make_matrix ~dimx:(jmax + 1) ~dimy:(imax + 1) None
+
+    let from_sparse m =
+      let bounds = bounds m in
+      let a = alloc_from_bounds bounds in
+      Map.iteri m ~f:(fun ~key ~data -> set a key (Some data));
+      a
+
+    let parse f =
+      let open Angstrom in
+      let+ m = parse f in
+      from_sparse m
+
+    let view m f =
+      Array.iter m ~f:(fun row ->
+          Array.iter row ~f:(function
+            | None -> printf "."
+            | Some v -> printf "%s" (f v));
+          printf "\n")
+
+    let bounds m =
+      let jmax = Array.length m - 1 in
+      let imax = Array.length m.(0) - 1 in
+      { imin = 0; jmin = 0; imax; jmax }
+
+    let find_exn m p = get m p |> Option.value_exn
+
+    let iteri t ~f =
+      Array.iteri t ~f:(fun j row ->
+          Array.iteri row ~f:(fun i vo ->
+              match vo with None -> () | Some v -> f (i, j) v))
+
+    let map_keys_exn t ~f =
+      let bounds = bounds t in
+      let a = alloc_from_bounds bounds in
+      iteri t ~f:(fun p v ->
+          let p' = f p in
+          set a p' (Some v));
+      a
+
+    let mem m p = get m p |> Option.is_some
+
+    let fold a ~init ~f =
+      Array.foldi a ~init ~f:(fun j acc ->
+          Array.foldi ~init:acc ~f:(fun i acc ->
+              Option.fold ~init:acc ~f:(fun acc data -> f ~key:(i, j) ~data acc)))
+  end
 end
 
 (** Return g, s, t and gcd(a,b) such that as+bt = g = gcd(a,b) *)

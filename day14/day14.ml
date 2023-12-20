@@ -18,7 +18,7 @@ let sample =
   |> String.concat_lines
 
 type rock = Cube | Rock [@@deriving compare, equal, sexp]
-type t = rock Map2d.t [@@deriving compare, equal, sexp]
+type t = rock Map2d.Dense.t [@@deriving compare, equal, sexp]
 
 let parse =
   let open Angstrom in
@@ -30,21 +30,24 @@ let parse =
         char 'O' *> return (Some Rock);
       ]
   in
-  parse (Map2d.parse symbol)
+  parse (Map2d.Dense.parse symbol)
 
-let view t = Map2d.view t (function Cube -> "#" | Rock -> "O")
+let view t = Map2d.Dense.view t (function Cube -> "#" | Rock -> "O")
 
 let%expect_test "parse" =
   parse sample |> [%sexp_of: t] |> print_s;
   [%expect
     {|
-    (((0 0) Rock) ((0 1) Rock) ((0 3) Rock) ((0 5) Rock) ((0 8) Cube)
-     ((0 9) Cube) ((1 3) Rock) ((1 4) Rock) ((1 9) Rock) ((2 1) Rock)
-     ((2 5) Cube) ((2 6) Rock) ((2 9) Rock) ((3 1) Rock) ((3 3) Cube)
-     ((4 1) Cube) ((4 3) Rock) ((5 0) Cube) ((5 2) Cube) ((5 5) Rock)
-     ((5 6) Cube) ((5 8) Cube) ((5 9) Cube) ((6 2) Cube) ((6 6) Rock)
-     ((6 8) Cube) ((7 4) Rock) ((7 5) Cube) ((7 7) Rock) ((7 8) Cube)
-     ((8 4) Cube) ((9 1) Cube) ((9 3) Rock) ((9 5) Cube) ((9 6) Rock)) |}];
+    (((Rock) () () () () (Cube) () () () ())
+     ((Rock) () (Rock) (Rock) (Cube) () () () () (Cube))
+     (() () () () () (Cube) (Cube) () () ())
+     ((Rock) (Rock) () (Cube) (Rock) () () () () (Rock))
+     (() (Rock) () () () () () (Rock) (Cube) ())
+     ((Rock) () (Cube) () () (Rock) () (Cube) () (Cube))
+     (() () (Rock) () () (Cube) (Rock) () () (Rock))
+     (() () () () () () () (Rock) () ())
+     ((Cube) () () () () (Cube) (Cube) (Cube) () ())
+     ((Cube) (Rock) (Rock) () () (Cube) () () () ())) |}];
   parse sample |> view;
   [%expect
     {|
@@ -67,24 +70,26 @@ let shift (i, j) = function
   | W -> (i - 1, j)
   | E -> (i + 1, j)
 
-let rec next_available_in_dir t bounds p dir =
-  let dst = shift p dir in
-  if Map2d.in_bounds bounds dst then
-    if Map.mem t dst then p else next_available_in_dir t bounds dst dir
-  else p
+let next_available_in_dir t _bounds p dir =
+  let rec go p =
+    let dst = shift p dir in
+    match Map2d.Dense.mem t dst with
+    | true -> p
+    | false -> go dst
+    | exception Invalid_argument _ -> p
+    (*else p*)
+  in
+  go p
 
 let step dir bounds t =
-  Map.map_keys_exn
-    (module Pos)
-    t
-    ~f:(fun p ->
-      match Map.find_exn t p with
+  Map2d.Dense.map_keys_exn t ~f:(fun p ->
+      match Map2d.Dense.find_exn t p with
       | Cube -> p
       | Rock -> next_available_in_dir t bounds p dir)
 
 let%expect_test "step" =
   let t = parse sample in
-  t |> step N (Map2d.bounds t) |> view;
+  t |> step N (Map2d.Dense.bounds t) |> view;
   [%expect
     {|
     OOOO.#.O..
@@ -103,7 +108,7 @@ let rec fixpoint ~equal ~f x =
   if equal x y then x else fixpoint ~equal ~f y
 
 let move_all dir t =
-  let bounds = Map2d.bounds t in
+  let bounds = Map2d.Dense.bounds t in
   fixpoint ~f:(step dir bounds) ~equal:[%equal: t] t
 
 let%expect_test "move_all" =
@@ -124,11 +129,11 @@ let%expect_test "move_all" =
 let load bounds t =
   let { Map2d.jmax; _ } = bounds in
   let score_for_row j = jmax - j + 1 in
-  Map.fold t ~init:0 ~f:(fun ~key:(_i, j) ~data acc ->
+  Map2d.Dense.fold t ~init:0 ~f:(fun ~key:(_i, j) ~data acc ->
       match data with Cube -> acc | Rock -> acc + score_for_row j)
 
 let result t =
-  let bounds = Map2d.bounds t in
+  let bounds = Map2d.Dense.bounds t in
   let moved = move_all N t in
   load bounds moved
 
@@ -209,7 +214,7 @@ let%expect_test "cyclic_values" =
   [%expect {| (10 3) |}]
 
 let result2 t =
-  let bounds = Map2d.bounds t in
+  let bounds = Map2d.Dense.bounds t in
   let n, values = cycle_values t in
   let values_len = Map.length values in
   let modulus = values_len - n in

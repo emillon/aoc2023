@@ -27,6 +27,21 @@ module Map2d : sig
   val bounds : 'a t -> bounds
   val in_bounds : ?from_min:bool -> bounds -> Pos.t -> bool
   val view : ?sets:(Set.M(Pos).t * char) list -> 'a t -> ('a -> string) -> unit
+  val mem : 'a t -> Pos.t -> bool
+  val find_exn : 'a t -> Pos.t -> 'a
+  val fold : 'a t -> init:'b -> f:(key:Pos.t -> data:'a -> 'b -> 'b) -> 'b
+
+  module Dense : sig
+    type 'a t = 'a option array array [@@deriving compare, equal, sexp]
+
+    val parse : 'a option Angstrom.t -> 'a t Angstrom.t
+    val view : 'a t -> ('a -> string) -> unit
+    val bounds : 'a t -> bounds
+    val map_keys_exn : 'a t -> f:(Pos.t -> Pos.t) -> 'a t
+    val find_exn : 'a t -> Pos.t -> 'a
+    val mem : 'a t -> Pos.t -> bool
+    val fold : 'a t -> init:'b -> f:(key:Pos.t -> data:'a -> 'b -> 'b) -> 'b
+  end
 end
 
 val lcm : int list -> int
