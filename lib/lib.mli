@@ -37,10 +37,11 @@ module Map2d : sig
     val parse : 'a option Angstrom.t -> 'a t Angstrom.t
     val view : 'a t -> ('a -> string) -> unit
     val bounds : 'a t -> bounds
-    val map_keys_exn : 'a t -> f:(Pos.t -> Pos.t) -> 'a t
     val find_exn : 'a t -> Pos.t -> 'a
     val mem : 'a t -> Pos.t -> bool
     val fold : 'a t -> init:'b -> f:(key:Pos.t -> data:'a -> 'b -> 'b) -> 'b
+    val set : 'a t -> Pos.t -> 'a option -> unit
+    val get : 'a t -> Pos.t -> 'a option
   end
 end
 

@@ -137,20 +137,6 @@ module Map2d = struct
       { imin = 0; jmin = 0; imax; jmax }
 
     let find_exn m p = get m p |> Option.value_exn
-
-    let iteri t ~f =
-      Array.iteri t ~f:(fun j row ->
-          Array.iteri row ~f:(fun i vo ->
-              match vo with None -> () | Some v -> f (i, j) v))
-
-    let map_keys_exn t ~f =
-      let bounds = bounds t in
-      let a = alloc_from_bounds bounds in
-      iteri t ~f:(fun p v ->
-          let p' = f p in
-          set a p' (Some v));
-      a
-
     let mem m p = get m p |> Option.is_some
 
     let fold a ~init ~f =

@@ -62,7 +62,7 @@ let%expect_test "parse" =
     #....###..
     #OO..#.... |}]
 
-type dir = N | S | E | W
+type dir = N | S | E | W [@@deriving sexp]
 
 let shift (i, j) = function
   | N -> (i, j - 1)
@@ -70,7 +70,7 @@ let shift (i, j) = function
   | W -> (i - 1, j)
   | E -> (i + 1, j)
 
-let next_available_in_dir t _bounds p dir =
+let next_available_in_dir t p dir =
   let rec go p =
     let dst = shift p dir in
     match Map2d.Dense.mem t dst with
@@ -81,15 +81,62 @@ let next_available_in_dir t _bounds p dir =
   in
   go p
 
-let step dir bounds t =
-  Map2d.Dense.map_keys_exn t ~f:(fun p ->
-      match Map2d.Dense.find_exn t p with
-      | Cube -> p
-      | Rock -> next_available_in_dir t bounds p dir)
+let array_iteri ~rev a ~f =
+  let n = Array.length a in
+  if rev then
+    for i = n - 1 downto 0 do
+      f i (Array.unsafe_get a i)
+    done
+  else
+    for i = 0 to n - 1 do
+      f i (Array.unsafe_get a i)
+    done
+
+let iter_along_dir t dir ~f =
+  let { Map2d.imax; jmax; _ } = Map2d.Dense.bounds t in
+  let go pos =
+    match Map2d.Dense.get t pos with None -> () | Some v -> f pos v
+  in
+  match dir with
+  | S ->
+      for j = jmax downto 0 do
+        for i = 0 to imax do
+          go (i, j)
+        done
+      done
+  | E ->
+      for i = 0 to imax do
+        for j = 0 to jmax do
+          go (i, j)
+        done
+      done
+  | N ->
+      for j = 0 to jmax do
+        for i = 0 to imax do
+          go (i, j)
+        done
+      done
+  | W ->
+      for i = imax downto 0 do
+        for j = 0 to jmax do
+          go (i, j)
+        done
+      done
+
+let step dir t =
+  let t' = Array.copy_matrix t in
+  iter_along_dir t dir ~f:(fun p v ->
+      match v with
+      | Cube -> ()
+      | Rock ->
+          let dst = next_available_in_dir t p dir in
+          Map2d.Dense.set t' p None;
+          Map2d.Dense.set t' dst (Some Rock));
+  t'
 
 let%expect_test "step" =
   let t = parse sample in
-  t |> step N (Map2d.Dense.bounds t) |> view;
+  t |> step N |> view;
   [%expect
     {|
     OOOO.#.O..
@@ -107,9 +154,7 @@ let rec fixpoint ~equal ~f x =
   let y = f x in
   if equal x y then x else fixpoint ~equal ~f y
 
-let move_all dir t =
-  let bounds = Map2d.Dense.bounds t in
-  fixpoint ~f:(step dir bounds) ~equal:[%equal: t] t
+let move_all dir t = fixpoint ~f:(step dir) ~equal:[%equal: t] t
 
 let%expect_test "move_all" =
   parse sample |> move_all N |> view;
