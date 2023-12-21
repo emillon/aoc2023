@@ -111,25 +111,27 @@ module Map2d = struct
     let set a (i, j) vo = a.(j).(i) <- vo
     let get m (i, j) = m.(j).(i)
 
-    let alloc_from_bounds { imax; jmax; _ } =
-      Array.make_matrix ~dimx:(jmax + 1) ~dimy:(imax + 1) None
-
-    let from_sparse m =
-      let bounds = bounds m in
-      let a = alloc_from_bounds bounds in
-      Map.iteri m ~f:(fun ~key ~data -> set a key (Some data));
-      a
-
     let parse f =
       let open Angstrom in
-      let+ m = parse f in
-      from_sparse m
+      let line =
+        let+ row = many1 f <* end_of_line in
+        Array.of_list row
+      in
+      let+ rows = many1 line in
+      Array.of_list rows
 
-    let view m f =
-      Array.iter m ~f:(fun row ->
-          Array.iter row ~f:(function
-            | None -> printf "."
-            | Some v -> printf "%s" (f v));
+    let view ?(sets = []) m f =
+      Array.iteri m ~f:(fun j row ->
+          Array.iteri row ~f:(fun i vo ->
+              match
+                List.find_map sets ~f:(fun (set, c) ->
+                    if Set.mem set (i, j) then Some c else None)
+              with
+              | Some c -> printf "%c" c
+              | None -> (
+                  match vo with
+                  | None -> printf "."
+                  | Some v -> printf "%s" (f v)));
           printf "\n")
 
     let bounds m =
@@ -144,6 +146,9 @@ module Map2d = struct
       Array.foldi a ~init ~f:(fun j acc ->
           Array.foldi ~init:acc ~f:(fun i acc ->
               Option.fold ~init:acc ~f:(fun acc data -> f ~key:(i, j) ~data acc)))
+
+    let mapi_option t ~f =
+      Array.mapi t ~f:(fun j row -> Array.mapi row ~f:(fun i vo -> f (i, j) vo))
   end
 end
 

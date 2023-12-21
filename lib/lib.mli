@@ -35,8 +35,12 @@ module Map2d : sig
   module Dense : sig
     type 'a t = 'a option array array [@@deriving compare, equal, sexp]
 
+    val mapi_option : 'a t -> f:(Pos.t -> 'a option -> 'b option) -> 'b t
     val parse : 'a option Angstrom.t -> 'a t Angstrom.t
-    val view : 'a t -> ('a -> string) -> unit
+
+    val view :
+      ?sets:(Set.M(Pos).t * char) list -> 'a t -> ('a -> string) -> unit
+
     val bounds : 'a t -> bounds
     val find_exn : 'a t -> Pos.t -> 'a
     val mem : 'a t -> Pos.t -> bool
