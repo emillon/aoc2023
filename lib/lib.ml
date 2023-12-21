@@ -41,7 +41,7 @@ end
 module Dir = struct
   type t = N | S | E | W [@@deriving compare, equal, hash, sexp]
 
-  let all = [ N; S; E; W ]
+  let all = [ N; E; S; W ]
   let reverse = function N -> S | S -> N | E -> W | W -> E
 
   let shift (i, j) = function
