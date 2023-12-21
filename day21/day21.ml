@@ -205,30 +205,32 @@ let%expect_test "result" =
   parse sample |> result |> printf "%d\n";
   [%expect {| 29 |}]
 
-let result2 _ = 0
+let interpolate v0 v1 v2 =
+  let a0 = v1 - v0 in
+  let a1 = v2 - v1 in
+  let b0 = a1 - a0 in
+  `Staged (fun n -> v0 + (n * a0) + (b0 * (n * (n - 1) / 2)))
 
-let%expect_test "result_gen" =
-  let t = parse sample in
-  let test n =
-    let result = result_gen ~n ~infinite:true t in
-    print_s [%message (n : int) (result : int)]
+let result2 t =
+  (* XXX fix *)
+  let sz = t.bounds.imax + 2 in
+  let big_n = 26501365 in
+  let modulo = big_n % sz in
+  let bigstep start =
+    iterate_n start ~f:(step ~infinite:true t.map t.bounds) ~n:sz
   in
-  test 6;
-  [%expect {| ((n 6) (result 16)) |}];
-  test 10;
-  [%expect {| ((n 10) (result 50)) |}];
-  test 50;
-  [%expect {| ((n 50) (result 1594)) |}];
-  test 100;
-  [%expect {| ((n 100) (result 6536)) |}];
-  test 500;
-  [%expect {| ((n 500) (result 167004)) |}];
-  (*In exactly 1000 steps, he can reach 668697 garden plots.*)
-  (*test 1000;*)
-  (*[%expect {| 29 |}];*)
-  (*In exactly 5000 steps, he can reach 16733044 garden plots.*)
-  (*test 5000;*)
-  (*[%expect {| 29 |}]*)
-  ()
+  let start =
+    iterate_n
+      (Set.singleton (module Pos) t.start)
+      ~f:(step ~infinite:true t.map t.bounds)
+      ~n:modulo
+  in
+  let s0 = start in
+  let s1 = bigstep s0 in
+  let s2 = bigstep s1 in
+  let (`Staged f) =
+    interpolate (Set.length s0) (Set.length s1) (Set.length s2)
+  in
+  f (big_n / sz)
 
 let run () = main All parse result result2
