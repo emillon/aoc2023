@@ -74,17 +74,6 @@ let%expect_test "parse" =
      ((12 3) 2) ((12 4) 6) ((12 5) 4) ((12 6) 6) ((12 7) 3) ((12 8) 7) ((12 9) 3)
      ((12 10) 3) ((12 11) 5) ((12 12) 3)) |}]
 
-type dir = N | S | E | W [@@deriving compare, equal, hash, sexp]
-
-let all_dirs = [ N; S; E; W ]
-let reverse_dir = function N -> S | S -> N | E -> W | W -> E
-
-let shift (i, j) = function
-  | E -> (i + 1, j)
-  | W -> (i - 1, j)
-  | N -> (i, j - 1)
-  | S -> (i, j + 1)
-
 let guard = function true -> Some () | false -> None
 
 module Last_dirs : sig
@@ -92,10 +81,10 @@ module Last_dirs : sig
 
   val empty : t
   val ultra : t
-  val next : t -> (dir * t) list
+  val next : t -> (Dir.t * t) list
 end = struct
   type t =
-    | Same of { last_dir : dir; count : int; max : int; min : int }
+    | Same of { last_dir : Dir.t; count : int; max : int; min : int }
     | Empty of { max : int; min : int }
   [@@deriving compare, equal, hash, sexp]
 
@@ -106,7 +95,7 @@ end = struct
     match ld with
     | Empty { min; max } -> Some (Same { last_dir = d; count = 1; max; min })
     | Same { last_dir; count; max; min } ->
-        if equal_dir d last_dir then
+        if Dir.equal d last_dir then
           if count = max then None
           else Some (Same { last_dir; count = count + 1; max; min })
         else if count < min then None
@@ -117,10 +106,10 @@ end = struct
     | Same { last_dir; _ } -> Some last_dir
 
   let is_reverse t dir =
-    [%equal: dir option] (last_dir t) (Some (reverse_dir dir))
+    [%equal: Dir.t option] (last_dir t) (Some (Dir.reverse dir))
 
   let next t =
-    List.filter_map all_dirs ~f:(fun dir ->
+    List.filter_map Dir.all ~f:(fun dir ->
         let open Option.Let_syntax in
         let%bind () = guard (not (is_reverse t dir)) in
         let%map t' = add t dir in
@@ -140,7 +129,7 @@ end
 let next_states { State.pos; last_dirs } =
   Last_dirs.next last_dirs
   |> List.map ~f:(fun (dir, last_dirs) ->
-         let new_pos = shift pos dir in
+         let new_pos = Dir.shift pos dir in
          { State.pos = new_pos; last_dirs })
 
 let add_dist d n = if Int.equal d Int.max_value then d else d + n

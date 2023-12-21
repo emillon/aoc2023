@@ -49,15 +49,7 @@ let%expect_test "parse" =
      ((7 7) (Splitter NS)) ((7 8) (Splitter NS)) ((8 3) (Splitter NS))
      ((9 5) (Mirror NW)) ((9 8) (Mirror NW))) |}]
 
-type dir = N | S | E | W [@@deriving compare, sexp]
-
-let shift (i, j) = function
-  | E -> (i + 1, j)
-  | W -> (i - 1, j)
-  | N -> (i, j - 1)
-  | S -> (i, j + 1)
-
-let reflect_dir md d =
+let reflect_dir md (d : Dir.t) : Dir.t =
   match (md, d) with
   | NW, E -> S
   | NW, N -> W
@@ -68,7 +60,7 @@ let reflect_dir md d =
   | NE, S -> W
   | NE, W -> S
 
-let split sd d =
+let split sd (d : Dir.t) : (Dir.t * Dir.t) option =
   match (sd, d) with
   | NS, (E | W) -> Some (N, S)
   | NS, (N | S) -> None
@@ -77,7 +69,7 @@ let split sd d =
 
 module State = struct
   module T = struct
-    type t = { pos : Pos.t; dir : dir } [@@deriving compare, sexp]
+    type t = { pos : Pos.t; dir : Dir.t } [@@deriving compare, sexp]
   end
 
   include T
@@ -92,7 +84,7 @@ let next m { State.pos; dir } =
     | Some (Splitter sd) -> (
         match split sd dir with None -> [ dir ] | Some (d1, d2) -> [ d1; d2 ])
   in
-  let go dir = { State.pos = shift pos dir; dir } in
+  let go dir = { State.pos = Dir.shift pos dir; dir } in
   List.map ~f:go dirs
 
 let start_p1 = { State.pos = (0, 0); dir = E }

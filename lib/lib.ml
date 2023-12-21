@@ -38,6 +38,26 @@ module Pos = struct
   include Comparable.Make (T)
 end
 
+module Dir = struct
+  type t = N | S | E | W [@@deriving compare, equal, hash, sexp]
+
+  let all = [ N; S; E; W ]
+  let reverse = function N -> S | S -> N | E -> W | W -> E
+
+  let shift (i, j) = function
+    | E -> (i + 1, j)
+    | W -> (i - 1, j)
+    | N -> (i, j - 1)
+    | S -> (i, j + 1)
+
+  let shift_n (i, j) dir n =
+    match dir with
+    | E -> (i + n, j)
+    | W -> (i - n, j)
+    | N -> (i, j - n)
+    | S -> (i, j + n)
+end
+
 module Map2d = struct
   type 'a t = 'a Map.M(Pos).t [@@deriving compare, equal, sexp]
 

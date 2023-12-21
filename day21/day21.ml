@@ -65,16 +65,6 @@ let%expect_test "parse" =
     .##..##.##.
     ........... |}]
 
-type dir = N | S | E | W
-
-let all_dirs = [ N; S; E; W ]
-
-let shift (i, j) = function
-  | E -> (i + 1, j)
-  | W -> (i - 1, j)
-  | N -> (i, j - 1)
-  | S -> (i, j + 1)
-
 let wrap_pos bounds (i, j) =
   let { Map2d.imax; jmax; _ } = bounds in
   let i = i % (imax + 1) in
@@ -136,9 +126,9 @@ let step ~infinite m bounds start =
   Set.fold start
     ~init:(Set.empty (module Pos))
     ~f:(fun s pos ->
-      all_dirs
+      Dir.all
       |> List.fold ~init:s ~f:(fun acc d ->
-             let new_pos = shift pos d in
+             let new_pos = Dir.shift pos d in
              if blocked ~infinite m bounds new_pos then acc
              else Set.add acc new_pos))
 

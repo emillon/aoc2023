@@ -21,21 +21,15 @@ let sample =
   ]
   |> String.concat_lines
 
-type dir = N | S | E | W [@@deriving sexp]
+type line = { dir : Dir.t; n : int; p2_dir : Dir.t; p2_n : int }
+[@@deriving sexp]
 
-let shift_n (i, j) dir n =
-  match dir with
-  | E -> (i + n, j)
-  | W -> (i - n, j)
-  | N -> (i, j - n)
-  | S -> (i, j + n)
-
-type line = { dir : dir; n : int; p2_dir : dir; p2_n : int } [@@deriving sexp]
 type t = line list [@@deriving sexp]
 
 let parse =
   let open Angstrom in
   let dir =
+    let open Dir in
     choice
       [
         char 'U' *> return N;
@@ -56,6 +50,7 @@ let parse =
         (16 * acc) + v)
   in
   let p2_dir =
+    let open Dir in
     choice
       [
         char '0' *> return E;
@@ -94,7 +89,7 @@ let%expect_test "parse" =
      ((dir N) (n 2) (p2_dir N) (p2_n 500254))) |}]
 
 let add_point (acc, pos) dir n =
-  let other_end = shift_n pos dir n in
+  let other_end = Dir.shift_n pos dir n in
   (other_end :: acc, other_end)
 
 let points part t =

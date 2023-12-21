@@ -17,6 +17,15 @@ module Pos : sig
   include Comparable.S with type t := t
 end
 
+module Dir : sig
+  type t = N | S | E | W [@@deriving compare, equal, hash, sexp]
+
+  val all : t list
+  val reverse : t -> t
+  val shift : Pos.t -> t -> Pos.t
+  val shift_n : Pos.t -> t -> int -> Pos.t
+end
+
 module Map2d : sig
   type 'a t = 'a Map.M(Pos).t [@@deriving compare, equal, sexp]
 

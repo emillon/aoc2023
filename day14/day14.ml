@@ -62,17 +62,9 @@ let%expect_test "parse" =
     #....###..
     #OO..#.... |}]
 
-type dir = N | S | E | W [@@deriving sexp]
-
-let shift (i, j) = function
-  | N -> (i, j - 1)
-  | S -> (i, j + 1)
-  | W -> (i - 1, j)
-  | E -> (i + 1, j)
-
 let next_available_in_dir t p dir =
   let rec go p =
-    let dst = shift p dir in
+    let dst = Dir.shift p dir in
     match Map2d.Dense.mem t dst with
     | true -> p
     | false -> go dst

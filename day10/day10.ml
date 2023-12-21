@@ -14,13 +14,6 @@ let sample2 =
 let sample2_extra =
   [ "7-F7-"; ".FJ|7"; "SJLL7"; "|F--J"; "LJ.LJ" ] |> String.concat_lines
 
-module Dir = struct
-  type t = N | S | E | W [@@deriving equal]
-
-  let opposite = function N -> S | S -> N | E -> W | W -> E
-  let all = [ N; E; S; W ]
-end
-
 let shift (i, j) =
   let open Dir in
   function
@@ -104,7 +97,7 @@ let find_all_neighbours t pos =
         if List.mem connected_dirs dir ~equal:Dir.equal then
           match Map.find t new_pos with
           | None -> false
-          | Some new_sym -> symbol_connects new_sym (Dir.opposite dir)
+          | Some new_sym -> symbol_connects new_sym (Dir.reverse dir)
         else false
       in
       (new_pos, ok))
