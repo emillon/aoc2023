@@ -23,6 +23,7 @@ module Map2d : sig
   val parse : 'a option Angstrom.t -> 'a t Angstrom.t
 
   type bounds = { imin : int; imax : int; jmin : int; jmax : int }
+  [@@deriving sexp]
 
   val bounds : 'a t -> bounds
   val in_bounds : ?from_min:bool -> bounds -> Pos.t -> bool

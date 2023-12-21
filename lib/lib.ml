@@ -62,6 +62,7 @@ module Map2d = struct
     |> Map.of_alist_exn (module Pos)
 
   type bounds = { imin : int; imax : int; jmin : int; jmax : int }
+  [@@deriving sexp]
 
   let bounds =
     Map.fold
