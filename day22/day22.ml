@@ -25,31 +25,10 @@ module Pos3 = struct
   let move_down (x, y, z) = (x, y, z - 1)
 end
 
-type brick = Pos3.t * Pos3.t [@@deriving equal, sexp]
+type brick = Set.M(Pos3).t [@@deriving equal, sexp]
 type t = brick list [@@deriving equal, sexp]
 
-let parse =
-  let open Angstrom in
-  let pos3 =
-    let+ x = number <* char ',' and+ y = number <* char ',' and+ z = number in
-    (x, y, z)
-  in
-  let brick =
-    let+ a = pos3 <* char '~' and+ b = pos3 <* end_of_line in
-    (a, b)
-  in
-  let input = many1 brick in
-  parse input
-
-let%expect_test "parse" =
-  parse sample |> [%sexp_of: t] |> print_s;
-  [%expect
-    {|
-    (((1 0 1) (1 2 1)) ((0 0 2) (2 0 2)) ((0 2 3) (2 2 3)) ((0 0 4) (0 2 4))
-     ((2 0 5) (2 2 5)) ((0 1 6) (2 1 6)) ((1 1 8) (1 1 9))) |}]
-
-let set_of_brick ((xa, ya, za), (xb, yb, zb)) =
-  (* XXX assert order *)
+let set_of_brick (xa, ya, za) (xb, yb, zb) =
   let r = ref (Set.empty (module Pos3)) in
   for x = xa to xb do
     for y = ya to yb do
@@ -61,28 +40,44 @@ let set_of_brick ((xa, ya, za), (xb, yb, zb)) =
   assert (not (Set.is_empty !r));
   !r
 
-let move_down (a, b) = (Pos3.move_down a, Pos3.move_down b)
+let parse =
+  let open Angstrom in
+  let pos3 =
+    let+ x = number <* char ',' and+ y = number <* char ',' and+ z = number in
+    (x, y, z)
+  in
+  let brick =
+    let+ a = pos3 <* char '~' and+ b = pos3 <* end_of_line in
+    set_of_brick a b
+  in
+  let input = many1 brick in
+  parse input
+
+let%expect_test "parse" =
+  parse sample |> [%sexp_of: t] |> print_s;
+  [%expect
+    {|
+    (((1 0 1) (1 1 1) (1 2 1)) ((0 0 2) (1 0 2) (2 0 2))
+     ((0 2 3) (1 2 3) (2 2 3)) ((0 0 4) (0 1 4) (0 2 4))
+     ((2 0 5) (2 1 5) (2 2 5)) ((0 1 6) (1 1 6) (2 1 6)) ((1 1 8) (1 1 9))) |}]
+
+let move_down = Set.map (module Pos3) ~f:Pos3.move_down
 let intersects a b = Set.inter a b |> Set.is_empty |> not
-let below b = Set.diff (set_of_brick (move_down b)) (set_of_brick b)
+let below b = Set.diff (move_down b) b
 
 let%expect_test "below" =
-  let test b = below b |> [%sexp_of: Set.M(Pos3).t] |> print_s in
+  let test (a, b) = set_of_brick a b |> [%sexp_of: Set.M(Pos3).t] |> print_s in
   test ((0, 0, 10), (1, 0, 10));
-  [%expect {| ((0 0 9) (1 0 9)) |}];
+  [%expect {| ((0 0 10) (1 0 10)) |}];
   test ((0, 0, 10), (0, 1, 10));
-  [%expect {| ((0 0 9) (0 1 9)) |}];
+  [%expect {| ((0 0 10) (0 1 10)) |}];
   test ((4, 3, 5), (4, 3, 10));
-  [%expect {| ((4 3 4)) |}]
-
-let build_set t =
-  List.fold t
-    ~init:(Set.empty (module Pos3))
-    ~f:(fun acc brick -> Set.union acc (set_of_brick brick))
+  [%expect {| ((4 3 5) (4 3 6) (4 3 7) (4 3 8) (4 3 9) (4 3 10)) |}]
 
 let is_oob s = Set.exists s ~f:(fun (_, _, z) -> z <= 0)
 
 let settle_step t =
-  let set = build_set t in
+  let set = Set.union_list (module Pos3) t in
   List.fold_mapi t
     ~init:(Set.empty (module Int))
     ~f:(fun i acc brick ->
@@ -91,21 +86,21 @@ let settle_step t =
       else if intersects set below then (acc, brick)
       else (Set.add acc i, move_down brick))
 
-(* XXX refactor to a sort of unfold *)
 let settle t =
-  fixpoint
-    (t, Set.empty (module Int))
-    ~f:(fun (t, moved) ->
-      let moved_in_step, t' = settle_step t in
-      (t', Set.union moved moved_in_step))
-    ~equal:(fun (a, _) (b, _) -> [%equal: t] a b)
+  let rec go t all_moved =
+    let moved, t' = settle_step t in
+    if Set.is_empty moved then (t', all_moved)
+    else go t' (Set.union all_moved moved)
+  in
+  go t (Set.empty (module Int))
 
 let%expect_test "settle" =
   parse sample |> settle |> [%sexp_of: t * Set.M(Int).t] |> print_s;
   [%expect
     {|
-    ((((1 0 1) (1 2 1)) ((0 0 2) (2 0 2)) ((0 2 2) (2 2 2)) ((0 0 3) (0 2 3))
-      ((2 0 3) (2 2 3)) ((0 1 4) (2 1 4)) ((1 1 5) (1 1 6)))
+    ((((1 0 1) (1 1 1) (1 2 1)) ((0 0 2) (1 0 2) (2 0 2))
+      ((0 2 2) (1 2 2) (2 2 2)) ((0 0 3) (0 1 3) (0 2 3))
+      ((2 0 3) (2 1 3) (2 2 3)) ((0 1 4) (1 1 4) (2 1 4)) ((1 1 5) (1 1 6)))
      (2 3 4 5 6)) |}]
 
 let rec removed = function
