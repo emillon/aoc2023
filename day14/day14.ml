@@ -106,10 +106,6 @@ let%expect_test "step" =
     #....###..
     #....#.... |}]
 
-let rec fixpoint ~equal ~f x =
-  let y = f x in
-  if equal x y then x else fixpoint ~equal ~f y
-
 let move_all dir t = fixpoint ~f:(step dir) ~equal:[%equal: t] t
 
 let%expect_test "move_all" =

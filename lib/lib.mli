@@ -60,3 +60,4 @@ module Map2d : sig
 end
 
 val lcm : int list -> int
+val fixpoint : equal:('a -> 'a -> bool) -> f:('a -> 'a) -> 'a -> 'a

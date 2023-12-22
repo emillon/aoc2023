@@ -189,3 +189,7 @@ let lcm2 a b =
   a * b / d
 
 let lcm l = fold1 l ~f:lcm2
+
+let rec fixpoint ~equal ~f x =
+  let y = f x in
+  if equal x y then x else fixpoint ~equal ~f y
