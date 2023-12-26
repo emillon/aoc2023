@@ -138,7 +138,7 @@ let%expect_test "step" =
   let s = ref start in
   let go () =
     s := step ~infinite:false t.map t.bounds !s;
-    Map2d.Dense.view ~sets:[ (!s, 'O'); (start, 'S') ] t.map (fun () -> "#")
+    Map2d.Dense.view ~sets:[ (!s, "O"); (start, "S") ] t.map (fun () -> "#")
   in
   go ();
   [%expect

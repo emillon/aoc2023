@@ -109,10 +109,10 @@ module Map2d = struct
     for j = 0 to jmax do
       for i = 0 to imax do
         match
-          List.find_map sets ~f:(fun (set, c) ->
-              if Set.mem set (i, j) then Some c else None)
+          List.find_map sets ~f:(fun (set, s) ->
+              if Set.mem set (i, j) then Some s else None)
         with
-        | Some c -> printf "%c" c
+        | Some s -> printf "%s" s
         | None -> (
             match Map.find t (i, j) with
             | Some x -> printf "%s" (to_string x)
@@ -144,10 +144,10 @@ module Map2d = struct
       Array.iteri m ~f:(fun j row ->
           Array.iteri row ~f:(fun i vo ->
               match
-                List.find_map sets ~f:(fun (set, c) ->
-                    if Set.mem set (i, j) then Some c else None)
+                List.find_map sets ~f:(fun (set, s) ->
+                    if Set.mem set (i, j) then Some s else None)
               with
-              | Some c -> printf "%c" c
+              | Some s -> printf "%s" s
               | None -> (
                   match vo with
                   | None -> printf "."

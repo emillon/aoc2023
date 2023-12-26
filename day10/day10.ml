@@ -289,7 +289,7 @@ let sym_to_string = function
 let%expect_test "walk_cycle" =
   let t = parse sample_p2 in
   let _loop, red, blue = walk_cycle t in
-  Map2d.view ~sets:[ (red, 'r'); (blue, 'b') ] t sym_to_string;
+  Map2d.view ~sets:[ (red, "r"); (blue, "b") ] t sym_to_string;
   [%expect
     {|
     r┌────┐┌┐┌┐┌┐┌─┐r...
