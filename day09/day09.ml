@@ -8,10 +8,6 @@ type t = int list list [@@deriving sexp]
 
 let parse_line =
   let open Angstrom in
-  let signed_number =
-    let+ minus = take_while (Char.equal '-') and+ number in
-    match minus with "-" -> -number | "" -> number | _ -> assert false
-  in
   let line = sep_by1 (char ' ') signed_number in
   parse line
 

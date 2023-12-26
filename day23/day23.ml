@@ -150,8 +150,7 @@ let result t =
 
 let%expect_test "result" =
   parse sample |> result |> printf "%d\n";
-  [%expect
-    {|
+  [%expect {|
     94 |}]
 
 let result2 _ = 0

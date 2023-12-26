@@ -14,6 +14,11 @@ let number =
    Int.of_string s)
   <?> "number"
 
+let signed_number =
+  let open Angstrom in
+  let+ sign = option Stdlib.( ~+ ) (char '-' *> return ( ~- )) and+ number in
+  sign number
+
 type _ kind = All : string kind | Lines : string list kind
 
 let main (type i a) (kind : i kind) (parse : i -> a) result result2 =
