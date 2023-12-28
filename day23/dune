@@ -2,7 +2,7 @@
  (name day23)
  (public_name aoc2023.day23)
  (modules day23)
- (libraries base lib stdio core_kernel.pairing_heap)
+ (libraries base lib stdio core_kernel.pairing_heap ocamlgraph)
  (preprocess
   (pps ppx_jane))
  (inline_tests))

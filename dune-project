@@ -18,6 +18,7 @@
   core_kernel
   (diet
    (>= 0.4))
+  ocamlgraph
   ppx_jane
   re
   stdio))

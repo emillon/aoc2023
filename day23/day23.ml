@@ -117,6 +117,14 @@ let next_states t u =
 
 let add_dist d n = if Int.equal d Int.max_value then d else d + n
 
+module E = struct
+  type t = int [@@deriving compare]
+
+  let default = 1
+end
+
+module G = Graph.Persistent.Graph.ConcreteLabeled (Pos) (E)
+
 let result t =
   let dist = Hashtbl.create (module Pos) in
   let dist_f s =
@@ -135,28 +143,91 @@ let result t =
   Hashtbl.set dist ~key:start_pos ~data:0;
   Pairing_heap.add q start_state;
   iter_on_heap q ~f:(fun u ->
-      (*if Pos.equal u.pos end_pos then raise (Found u);*)
-      let next = next_states t u in
-      (*print_s [%message (u.pos : Pos.t) (next : Pos.t list)];*)
-      (*assert (not (List.is_empty next));*)
-      List.iter next ~f:(fun v ->
-          let alt = add_dist (dist_f u) (-1) in
-          if alt < dist_f v then (
-            if false then
-              print_s [%message "better score" (v : State.t) (alt : int)];
-            Hashtbl.set dist ~key:v.pos ~data:alt;
-            Pairing_heap.add q v)));
+      next_states t u
+      |> List.iter ~f:(fun v ->
+             let alt = add_dist (dist_f u) (-1) in
+             if alt < dist_f v then (
+               if false then
+                 print_s [%message "better score" (v : State.t) (alt : int)];
+               Hashtbl.set dist ~key:v.pos ~data:alt;
+               Pairing_heap.add q v)));
   -Hashtbl.find_exn dist end_pos
+
+let contract_edges g u e1 e2 =
+  let _, w1, dst1 = e1 in
+  let _, w2, dst2 = e2 in
+  let acc = g in
+  let acc = G.add_edge_e acc (dst1, w1 + w2, dst2) in
+  let acc = G.remove_edge_e acc e1 in
+  let acc = G.remove_edge_e acc e2 in
+  let acc = G.remove_vertex acc u in
+  acc
+
+let contract_one g =
+  let exception Go of G.t in
+  match
+    G.iter_vertex
+      (fun u ->
+        match G.succ_e g u with
+        | [ e1; e2 ] -> raise (Go (contract_edges g u e1 e2))
+        | _ -> ())
+      g
+  with
+  | () -> None
+  | exception Go g -> Some g
+
+let rec contract g =
+  match contract_one g with None -> g | Some g' -> contract g'
+
+let build_graph t =
+  let g =
+    Map2d.Dense.fold_option t ~init:G.empty ~f:(fun ~key:u ~data:vo acc ->
+        match vo with
+        | Some Wall -> acc
+        | Some (Slope _) -> assert false
+        | None ->
+            let next = next_pos t u in
+            List.fold next ~init:acc ~f:(fun acc v -> G.add_edge acc u v))
+  in
+  contract g
 
 let%expect_test "result" =
   parse sample |> result |> printf "%d\n";
   [%expect {|
     94 |}]
 
-let result2 _ = 0
+let rec paths g start_pos end_pos visited =
+  let next =
+    G.succ_e g start_pos
+    |> List.filter_map ~f:(fun (_, w, p) ->
+           if Set.mem visited p then None else Some (p, w))
+  in
+  if List.is_empty next && Pos.equal start_pos end_pos then [ 0 ]
+  else
+    List.concat_map next ~f:(fun (n, w) ->
+        let ts = paths g n end_pos (Set.add visited n) in
+        List.map ts ~f:(fun n -> n + w))
+
+let remove_slopes =
+  Map2d.Dense.mapi_option ~f:(fun _ vo ->
+      match vo with
+      | None -> None
+      | Some Wall -> Some Wall
+      | Some (Slope _) -> None)
+
+let result2 t =
+  let t = remove_slopes t in
+  let g = build_graph t in
+  let start_pos = (1, 0) in
+  let { Map2d.imax; jmax; _ } = Map2d.Dense.bounds t in
+  let end_pos = (imax - 1, jmax) in
+  paths g start_pos end_pos (Set.singleton (module Pos) start_pos)
+  |> List.max_elt ~compare:[%compare: int]
+  |> Option.value_exn
 
 let%expect_test "result2" =
   parse sample |> result2 |> printf "%d\n";
-  [%expect {| 0 |}]
+  [%expect {|
+    154 |}]
 
 let run () = main All parse result result2

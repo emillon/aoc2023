@@ -172,6 +172,10 @@ module Map2d = struct
           Array.foldi ~init:acc ~f:(fun i acc ->
               Option.fold ~init:acc ~f:(fun acc data -> f ~key:(i, j) ~data acc)))
 
+    let fold_option a ~init ~f =
+      Array.foldi a ~init ~f:(fun j acc ->
+          Array.foldi ~init:acc ~f:(fun i acc data -> f ~key:(i, j) ~data acc))
+
     let mapi_option t ~f =
       Array.mapi t ~f:(fun j row -> Array.mapi row ~f:(fun i vo -> f (i, j) vo))
   end

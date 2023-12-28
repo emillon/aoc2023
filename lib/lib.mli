@@ -48,6 +48,9 @@ module Map2d : sig
   module Dense : sig
     type 'a t = 'a option array array [@@deriving compare, equal, sexp]
 
+    val fold_option :
+      'a t -> init:'b -> f:(key:Pos.t -> data:'a option -> 'b -> 'b) -> 'b
+
     val mapi_option : 'a t -> f:(Pos.t -> 'a option -> 'b option) -> 'b t
     val parse : 'a option Angstrom.t -> 'a t Angstrom.t
 
