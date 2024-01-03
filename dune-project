@@ -19,6 +19,7 @@
   (diet
    (>= 0.4))
   ocamlgraph
+  owl
   ppx_jane
   re
   stdio))

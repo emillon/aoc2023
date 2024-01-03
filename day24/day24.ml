@@ -45,34 +45,26 @@ let pairs l ~compare =
   let%bind.List b = l in
   if compare a b > 0 then List.return (a, b) else []
 
-let intersect (pa, sa) (pb, sb) =
-  let pxan, pyan, _ = pa in
-  let pxa = Float.of_int pxan in
-  let pya = Float.of_int pyan in
-  let pxbn, pybn, _ = pb in
-  let pxb = Float.of_int pxbn in
-  let pyb = Float.of_int pybn in
-  let sxan, syan, _ = sa in
-  let sxa = Float.of_int sxan in
-  let sya = Float.of_int syan in
-  let sxbn, sybn, _ = sb in
-  let sxb = Float.of_int sxbn in
-  let syb = Float.of_int sybn in
-  let ta =
-    (((pxa -. pxb) *. syb) +. (sxb *. (pyb -. pya)))
-    /. ((sxb *. sya) -. (sxa *. syb))
-  in
-  let tb = (pya -. pyb +. (ta *. sya)) /. syb in
-  if Float.is_positive ta && Float.is_positive tb then
-    let rx = pxa +. (ta *. sxa) in
-    let ry = pya +. (ta *. sya) in
-    Some (rx, ry)
-  else None
+module Mat = Owl.Dense.Matrix.D
 
-let in_test_area ~min ~max (x, y) =
+let intersect (pa, sa) (pb, sb) =
+  let open Mat in
+  let mat (x, y, _) = of_array [| Float.of_int x; Float.of_int y |] 2 1 in
+  let msa = mat sa in
+  let msb = mat sb in
+  let mpa = mat pa in
+  let mpb = mat pb in
+  match Owl.Linalg.D.linsolve (msa @|| neg msb) (mpb - mpa) with
+  | exception Failure _ -> None
+  | t ->
+      Option.some_if
+        (for_all Float.is_positive t)
+        (mpa + ((msa @|| zeros 2 1) *@ t))
+
+let in_test_area ~min ~max p =
   let open Float.O in
   let ok f = min <= f && f <= max in
-  ok x && ok y
+  Mat.for_all ok p
 
 let result_gen ~min ~max t =
   pairs t ~compare:[%compare: line]
