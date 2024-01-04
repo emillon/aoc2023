@@ -115,9 +115,4 @@ let%expect_test "result" =
   [%expect {| 54 |}]
 
 let result2 _ = 0
-
-let%expect_test "result2" =
-  parse sample |> result2 |> printf "%d\n";
-  [%expect {| 0 |}]
-
 let run () = main All parse result result2
