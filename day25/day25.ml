@@ -10,6 +10,18 @@ end
 
 module G = Graph.Persistent.Graph.ConcreteLabeled (String) (E)
 
+module W = struct
+  type edge = G.E.t
+  type t = int [@@deriving compare]
+
+  let weight _ = 1
+  let add = Int.( + )
+  let zero = Int.zero
+end
+
+module D = Graph.Path.Dijkstra (G) (W)
+module C = Graph.Components.Make (G)
+
 let build_graph t =
   Map.fold t ~init:G.empty ~f:(fun ~key:src ~data acc ->
       List.fold data ~init:acc ~f:(fun acc dst ->
@@ -70,15 +82,6 @@ module Edge = struct
 end
 
 let bfs g start_pos end_pos =
-  let module W = struct
-    type edge = G.E.t
-    type t = int [@@deriving compare]
-
-    let weight _ = 1
-    let add = Int.( + )
-    let zero = Int.zero
-  end in
-  let module D = Graph.Path.Dijkstra (G) (W) in
   fst (D.shortest_path g start_pos end_pos)
   |> List.map ~f:(fun (src, _, dst) ->
          if [%compare: string] src dst < 0 then (src, dst) else (dst, src))
@@ -103,7 +106,6 @@ let result t =
     |> take 3 |> List.map ~f:fst
     |> List.sort ~compare:Edge.compare
   in
-  let module C = Graph.Components.Make (G) in
   List.fold edges ~init:g ~f:(fun acc (src, dst) ->
       let acc = G.remove_edge acc src dst in
       let acc = G.remove_edge acc dst src in
